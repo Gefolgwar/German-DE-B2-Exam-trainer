@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B2 Test: Ваші Результати</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow-md p-4">
+      <div class="container mx-auto max-w-4xl">
+        <h1 class="text-2xl font-bold text-gray-800">
+          <a href="index.html" class="hover:text-blue-600">B2 Test Trainer</a>
+        </h1>
+      </div>
+    </header>
+
+    <!-- Main Content: Контейнер для результатів -->
+    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 mt-10">
+      <section class="text-center mb-8">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-2">
+          Ваші Результати Тесту
+        </h2>
+        <p class="text-xl text-gray-600" id="test-summary-title">Тест: ...</p>
+      </section>
+
+      <!-- Картка із загальною статистикою -->
+      <div
+        id="summary-card"
+        class="bg-white p-8 rounded-xl shadow-2xl mb-10 grid grid-cols-3 gap-4 text-center"
+      >
+        <!-- Сюди буде завантажено статистику -->
+        <div class="stat-item">
+          <p class="text-5xl font-extrabold text-blue-600" id="result-points">
+            0
+          </p>
+          <p class="text-gray-500 mt-1">Набрано балів</p>
+        </div>
+        <div class="stat-item">
+          <p class="text-5xl font-extrabold text-green-600" id="result-percent">
+            0%
+          </p>
+          <p class="text-gray-500 mt-1">Правильних відповідей</p>
+        </div>
+        <div class="stat-item">
+          <p class="text-5xl font-extrabold text-purple-600" id="result-time">
+            00:00
+          </p>
+          <p class="text-gray-500 mt-1">Витрачено часу</p>
+        </div>
+      </div>
+
+      <!-- Кнопка перегляду помилок -->
+      <div class="text-center mb-10">
+        <a
+          href="#"
+          id="review-link"
+          class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition duration-300"
+        >
+          🔍 Переглянути Помилки
+        </a>
+      </div>
+
+      <!-- Контейнер для детального звіту (Ф7, Ф8) -->
+      <section id="detailed-report-container" class="space-y-6">
+        <!-- Детальний звіт буде тут -->
+        <div class="text-center text-gray-500 p-10">Обробка результатів...</div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-200 text-center py-4 mt-auto text-gray-600 text-sm">
+      &copy; 2025 B2 Test Trainer Project
+    </footer>
+
+    <!-- JS для обробки результатів -->
+    <script src="src/js/results.js"></script>
+  </body>
+</html>

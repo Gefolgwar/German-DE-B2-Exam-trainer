@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B2 German Exam Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Базовий шрифт без засічок для чистоти */
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen flex flex-col">
+    <header class="bg-white shadow-md p-4">
+      <div
+        class="container mx-auto max-w-4xl flex justify-between items-center"
+      >
+        <h1 class="text-2xl font-bold text-gray-800">
+          <a
+            href="index.html"
+            class="hover:text-blue-600 transition duration-150"
+            >B2 Test Trainer</a
+          >
+        </h1>
+        <nav>
+          <a
+            href="index.html"
+            class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
+            >Головна</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 mt-10">
+      <section class="text-center bg-white p-6 md:p-12 rounded-lg shadow-xl">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">
+          🚀 Готуйтеся до іспиту B2
+        </h2>
+        <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+          Тренуйте всі частини іспитів **Goethe-Zertifikat B2** та **telc
+          Deutsch B2** у зручному онлайн-форматі. Усі тести безкоштовні!
+        </p>
+
+        <a
+          href="test-page.html"
+          class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full text-xl shadow-lg transform hover:scale-105 transition duration-300 ease-in-out"
+        >
+          Почати Тест
+        </a>
+      </section>
+
+      <section class="grid md:grid-cols-3 gap-8 mt-12 text-center">
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">⏱️</div>
+          <h3 class="text-xl font-semibold mb-2">Обмеження Часу</h3>
+          <p class="text-gray-600">Симуляція іспиту з реалістичним таймером.</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">✔️</div>
+          <h3 class="text-xl font-semibold mb-2">Миттєвий Фідбек</h3>
+          <p class="text-gray-600">
+            Перевірка відповідей та детальний звіт про помилки.
+          </p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">💻</div>
+          <h3 class="text-xl font-semibold mb-2">Адаптивний Дизайн</h3>
+          <p class="text-gray-600">
+            Тренуйтеся на смартфоні, планшеті або комп'ютері.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-gray-200 text-center py-4 mt-auto text-gray-600 text-sm">
+      &copy; 2025 B2 Test Trainer Project | Безкоштовна підготовка до іспитів
+      B2.
+    </footer>
+
+    <script src="src/js/main.js"></script>
+  </body>
+</html>

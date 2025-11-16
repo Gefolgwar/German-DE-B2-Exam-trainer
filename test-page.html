@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="test-title">B2 Test: Завантаження...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      }
+      /* Стиль для відключення вибору тексту для кращої симуляції тесту */
+      .noselect {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen flex flex-col noselect">
+    <!-- Header: Таймер та Прогрес (Фіксований) -->
+    <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
+      <div
+        class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap"
+      >
+        <h1 class="text-xl font-bold text-gray-800" id="current-test-title">
+          B2 Test: Reading
+        </h1>
+
+        <div class="flex items-center space-x-4 mt-2 sm:mt-0">
+          <!-- Таймер (Ф3) -->
+          <div
+            class="bg-red-100 text-red-700 font-extrabold px-3 py-1 rounded-full shadow-md text-lg"
+          >
+            ⏱️ <span id="timer">00:00</span>
+          </div>
+          <!-- Панель Прогресу (Ф4) -->
+          <div class="text-gray-600 font-medium" id="progress-indicator">
+            Питання: 1/30
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content: Контейнер для питань -->
+    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 mt-4">
+      <!-- Контейнер для відображення стимульного тексту (Lesetext) -->
+      <section
+        id="stimulus-container"
+        class="bg-white p-6 rounded-lg shadow-xl mb-6"
+      >
+        <h3 class="text-2xl font-semibold text-gray-800 mb-3 border-b pb-2">
+          Матеріал для роботи (Stimulus)
+        </h3>
+        <p class="text-gray-700" id="stimulus-text">
+          Текст матеріалу буде завантажено тут...
+        </p>
+      </section>
+
+      <!-- Контейнер для відображення питань та варіантів -->
+      <section id="questions-container" class="space-y-8">
+        <!-- Питання будуть динамічно завантажені тут JavaScript'ом -->
+        <div class="text-center text-gray-500 p-10">Завантаження тесту...</div>
+      </section>
+    </main>
+
+    <!-- Footer: Навігація (Фіксований) -->
+    <footer class="bg-white shadow-inner p-4 sticky bottom-0 z-10">
+      <div
+        class="container mx-auto max-w-4xl flex justify-between items-center"
+      >
+        <!-- Навігація Питаннями (Ф4) -->
+        <button
+          id="prev-btn"
+          class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
+          disabled
+        >
+          ← Попереднє
+        </button>
+
+        <!-- Кнопка Завершення (Ф5) -->
+        <button
+          id="finish-btn"
+          class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition duration-300 disabled:opacity-50"
+        >
+          Завершити Тест
+        </button>
+
+        <button
+          id="next-btn"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
+        >
+          Наступне →
+        </button>
+      </div>
+    </footer>
+
+    <!-- Основний JavaScript-файл з логікою -->
+    <script src="src/js/main.js"></script>
+  </body>
+</html>
