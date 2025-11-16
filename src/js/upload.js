@@ -9,10 +9,14 @@ const elements = {
     form: document.getElementById('test-upload-form'),
     questionsContainer: document.getElementById('questions-container'),
     addQuestionBtn: document.getElementById('add-question-btn'),
-    messageBox: document.getElementById('message-box')
+    messageBox: document.getElementById('message-box'),
+    // Новий елемент для заголовка форми
+    formTitle: document.getElementById('form-title'), 
 };
 
 let questionCounter = 0;
+// НОВА ЗМІННА: Зберігає ID тесту, якщо ми в режимі редагування
+let testToEditId = null; 
 
 // --- Утиліти UI ---
 
@@ -32,12 +36,19 @@ function showMessage(message, type = 'success') {
     }
 }
 
-function createQuestionCard(index) {
+function createQuestionCard(index, questionData = {}) {
     const cardId = `question-${index}`;
     const card = document.createElement('div');
     card.id = cardId;
     card.className = 'question-card bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-md space-y-3';
     
+    // Значення за замовчуванням для режиму редагування
+    const qText = questionData.text || '';
+    const qStimulus = questionData.stimulus || '';
+    const qImageUrl = questionData.image_url || '';
+    const qAudioUrl = questionData.audio_url || '';
+    const qExplanation = questionData.explanation || '';
+
     // HTML-структура картки питання
     card.innerHTML = `
         <h4 class="text-lg font-bold text-gray-800 border-b pb-2 flex justify-between items-center">
@@ -49,44 +60,47 @@ function createQuestionCard(index) {
         
         <div>
             <label for="q-text-${index}" class="block text-gray-700 font-medium">Текст питання</label>
-            <textarea id="q-text-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" rows="2" required placeholder="Наприклад: Вставте правильний артикль..."></textarea>
+            <textarea id="q-text-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" rows="2" required placeholder="Наприклад: Вставте правильний артикль...">${qText}</textarea>
         </div>
 
         <div>
             <label for="q-stimulus-${index}" class="block text-gray-700 font-medium">Стимул/Контекст (текст, опціонально)</label>
-            <textarea id="q-stimulus-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" rows="1" placeholder="Наприклад: 'Der Klimawandel betrifft uns alle...'"></textarea>
+            <textarea id="q-stimulus-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" rows="1" placeholder="Наприклад: 'Der Klimawandel betrifft uns alle...'">${qStimulus}</textarea>
         </div>
 
         <div>
             <label for="q-image-url-${index}" class="block text-gray-700 font-medium">📷 Посилання на зображення (URL, опціонально)</label>
-            <input type="text" id="q-image-url-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" placeholder="Наприклад: https://drive.google.com/uc?id=XYZ">
+            <input type="text" id="q-image-url-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" placeholder="Наприклад: https://raw.githubusercontent.com/..." value="${qImageUrl}">
         </div>
 
         <div>
             <label for="q-audio-url-${index}" class="block text-gray-700 font-medium">🎧 Посилання на аудіо (URL, опціонально)</label>
-            <input type="text" id="q-audio-url-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" placeholder="Наприклад: https://drive.google.com/uc?id=ABC">
+            <input type="text" id="q-audio-url-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" placeholder="Наприклад: https://raw.githubusercontent.com/..." value="${qAudioUrl}">
         </div>
 
         <div>
             <label for="q-explanation-${index}" class="block text-gray-700 font-medium">Пояснення правильної відповіді</label>
-            <textarea id="q-explanation-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" rows="2" required placeholder="Чому ця відповідь правильна?"></textarea>
+            <textarea id="q-explanation-${index}" class="w-full mt-1 p-2 border border-gray-300 rounded-lg" rows="2" required placeholder="Чому ця відповідь правильна?">${qExplanation}</textarea>
         </div>
 
         <div class="options-group space-y-2" data-index="${index}">
             <label class="block text-gray-700 font-medium pt-2">Варіанти відповідей (4 варіанти)</label>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                ${[0, 1, 2, 3].map(optIndex => `
-                    <div class="flex items-center space-x-2 bg-white p-2 rounded-lg border">
-                        <input type="radio" name="correct-answer-${index}" id="q-${index}-correct-${optIndex}" value="${optIndex}" class="text-blue-600 focus:ring-blue-500" required>
-                        <input type="text" id="q-${index}-option-${optIndex}" class="w-full p-2 border border-gray-300 rounded-lg" required placeholder="Варіант ${optIndex + 1}">
-                    </div>
-                `).join('')}
+                ${[0, 1, 2, 3].map(optIndex => {
+                    const optionValue = questionData.options ? questionData.options[optIndex] || '' : '';
+                    const isCorrect = questionData.correct_answer_index === optIndex;
+                    return `
+                        <div class="flex items-center space-x-2 bg-white p-2 rounded-lg border">
+                            <input type="radio" name="correct-answer-${index}" id="q-${index}-correct-${optIndex}" value="${optIndex}" class="text-blue-600 focus:ring-blue-500" ${isCorrect ? 'checked' : ''} required>
+                            <input type="text" id="q-${index}-option-${optIndex}" class="w-full p-2 border border-gray-300 rounded-lg" required placeholder="Варіант ${optIndex + 1}" value="${optionValue}">
+                        </div>
+                    `;
+                }).join('')}
             </div>
             <p class="text-sm text-red-500 mt-1">Оберіть радіокнопку поруч з полем, щоб позначити правильну відповідь.</p>
         </div>
     `;
     
-    // Додаємо обробник для кнопки видалення
     card.querySelector('.remove-question-btn').addEventListener('click', (e) => {
         e.preventDefault();
         card.remove();
@@ -104,6 +118,7 @@ function updateQuestionNumbers() {
         const newNumber = index + 1;
         card.querySelector('h4').firstChild.textContent = `Питання №${newNumber}`;
         
+        // Оновлення ID та Name для збереження коректності під час submit
         card.querySelectorAll('[id^="q-"], [name^="correct-answer-"]').forEach(el => {
             const oldPrefix = el.id ? el.id.match(/q-(\d+)-|correct-answer-(\d+)/) : el.name.match(/correct-answer-(\d+)/);
             if (!oldPrefix) return;
@@ -119,13 +134,51 @@ function updateQuestionNumbers() {
     });
 }
 
-function addQuestion() {
+function addQuestion(questionData) {
     questionCounter++;
-    const card = createQuestionCard(questionCounter);
+    const card = createQuestionCard(questionCounter, questionData);
     elements.questionsContainer.appendChild(card);
     
-    card.scrollIntoView({ behavior: 'smooth' });
+    // Прокручуємо до нового питання, тільки якщо воно не завантажується автоматично
+    if (!questionData) {
+        card.scrollIntoView({ behavior: 'smooth' });
+    }
 }
+
+// НОВА ФУНКЦІЯ: Завантаження даних для редагування
+function loadTestForEditing(testId) {
+    const existingTests = JSON.parse(localStorage.getItem('b2_custom_tests')) || [];
+    const testData = existingTests.find(t => t.test_id === testId);
+
+    if (testData) {
+        testToEditId = testId;
+        
+        // 1. Оновлення UI
+        elements.formTitle.textContent = 'Редагування Тесту';
+        document.querySelector('button[type="submit"]').textContent = 'Зберегти Зміни';
+        
+        // 2. Заповнення загальних полів
+        document.getElementById('test-title').value = testData.title;
+        document.getElementById('duration-minutes').value = testData.duration_minutes;
+        document.getElementById('passing-score').value = testData.passing_score_points;
+
+        // 3. Заповнення питань
+        elements.questionsContainer.innerHTML = '';
+        questionCounter = 0; // Скидаємо лічильник перед заповненням
+        testData.questions.forEach(q => {
+            addQuestion(q);
+        });
+
+        showMessage(`Тест "${testData.title}" завантажено для редагування.`, 'success');
+
+        // Очищаємо ID для редагування після завантаження
+        localStorage.removeItem('b2_test_to_edit'); 
+
+    } else {
+        showMessage('Помилка: Не вдалося знайти тест для редагування.', 'error');
+    }
+}
+
 
 async function handleSubmit(e) { 
     e.preventDefault();
@@ -156,11 +209,11 @@ async function handleSubmit(e) {
         const qStimulus = card.querySelector('textarea[id^="q-stimulus-"]').value.trim();
         const qExplanation = card.querySelector('textarea[id^="q-explanation-"]').value.trim();
         
-        // --- ЗБІР URL ---
-        // Використовуємо id, щоб уникнути конфліктів
-        const qImageUrl = card.querySelector(`input[id="q-image-url-${questionCounter}"]`).value.trim();
-        const qAudioUrl = card.querySelector(`input[id="q-audio-url-${questionCounter}"]`).value.trim();
-        // -------------------
+        // Пошук елементів за їхнім динамічно оновленим ID (q-image-url-X)
+        const qImageUrl = card.querySelector(`input[id^="q-image-url-"]`).value.trim(); 
+        const qAudioUrl = card.querySelector(`input[id^="q-audio-url-"]`).value.trim();
+        
+        //... (перевірка порожніх полів) ...
 
         if (!qText) {
             isValid = false;
@@ -173,23 +226,19 @@ async function handleSubmit(e) {
             return;
         }
         
-        // --- ПЕРЕВІРКА ВАРІАНТІВ ВІДПОВІДЕЙ (ВИПРАВЛЕННЯ) ---
+        // --- ПЕРЕВІРКА ВАРІАНТІВ ВІДПОВІДЕЙ ---
         const options = [];
         let correct_answer_index = -1;
         
-        // *************** ВИПРАВЛЕННЯ СЕЛЕКТОРА ***************
-        // Тепер вибираємо лише поля, які мають "option" в id, щоб ігнорувати поля URL.
         const optionInputs = card.querySelectorAll('input[id*="-option-"]'); 
+        // Використовуємо [name^="correct-answer-"] для знаходження радіокнопок, name яких було оновлено
         const radioInputs = card.querySelectorAll('input[type="radio"][name^="correct-answer-"]');
 
-        // Перевіряємо, чи кількість елементів збігається перед ітерацією
         if (optionInputs.length !== 4 || radioInputs.length !== 4) {
             isValid = false;
             showMessage(`Питання №${qDisplayId}: Помилка: Не вдалося знайти всі 4 текстові поля або 4 радіокнопки для варіантів відповіді.`, 'error'); 
             return;
         }
-        // ****************************************************
-
 
         optionInputs.forEach((input, optIndex) => { 
             if (!input.value.trim()) {
@@ -225,7 +274,6 @@ async function handleSubmit(e) {
             explanation: qExplanation
         };
         
-        // Видаляємо undefined ключі для чистоти JSON
         Object.keys(questionData).forEach(key => questionData[key] === undefined && delete questionData[key]);
         
         questions.push(questionData);
@@ -235,31 +283,35 @@ async function handleSubmit(e) {
         return; 
     }
     
-    // Валідація прохідного балу
     if (passingScorePoints > questions.length) {
          showMessage(`Прохідний бал (${passingScorePoints}) не може перевищувати загальну кількість питань (${questions.length}).`, 'error');
          return;
     }
 
 
-    // Формування об'єкту тесту
+    // 2. ФОРМУВАННЯ ПІДСУМКОВОГО ОБ'ЄКТУ ТА ЗБЕРЕЖЕННЯ
     const newTest = {
-        test_id: generateUniqueId(),
+        // ВИКОРИСТОВУЄМО ІСНУЮЧИЙ ID ДЛЯ РЕДАГУВАННЯ, АБО ГЕНЕРУЄМО НОВИЙ
+        test_id: testToEditId || generateUniqueId(),
         title: title,
         duration_minutes: durationMinutes,
         passing_score_points: passingScorePoints,
         questions: questions
     };
 
-    // --- Збереження в localStorage ---
+    // --- Збереження/Оновлення в localStorage ---
     try {
         const existingTests = JSON.parse(localStorage.getItem('b2_custom_tests')) || [];
-        const existingIndex = existingTests.findIndex(t => t.title === newTest.title);
+        
+        // Якщо ми в режимі редагування (testToEditId не null), знаходимо існуючий індекс
+        const existingIndex = existingTests.findIndex(t => t.test_id === newTest.test_id);
         
         if (existingIndex !== -1) {
-            existingTests[existingIndex] = newTest; // Замінюємо старий
+            existingTests[existingIndex] = newTest; // ОНОВЛЮЄМО ІСНУЮЧИЙ ТЕСТ
+            showMessage(`Тест "${newTest.title}" успішно оновлено!`, 'success');
         } else {
-            existingTests.unshift(newTest); // Додаємо новий на початок
+            existingTests.unshift(newTest); // СТВОРЮЄМО НОВИЙ ТЕСТ
+            showMessage(`Тест "${newTest.title}" успішно збережено та готовий до запуску!`, 'success');
         }
         
         // Зберігаємо оновлений список
@@ -267,27 +319,33 @@ async function handleSubmit(e) {
         
         localStorage.setItem('b2_test_to_load', newTest.test_id);
 
-        showMessage(`Тест "${newTest.title}" успішно збережено та готовий до запуску!`, 'success');
-        
         // Перенаправлення на сторінку тесту
         setTimeout(() => {
             window.location.href = 'test-page.html';
         }, 1500);
 
     } catch (error) {
-        // Повідомлення про помилку збереження залишається видимим
         console.error('Помилка збереження тесту:', error);
-        showMessage('ПОМИЛКА ЗБЕРЕЖЕННЯ: Не вдалося зберегти тест у браузері. Можливо, загальний обсяг тексту (JSON) перевищив ліміт пам\'яті браузера.', 'error');
+        showMessage('ПОМИЛКА ЗБЕРЕЖЕННЯ: Не вдалося зберегти тест у браузері.', 'error');
     }
 }
 
 // --- Ініціалізація ---\
 document.addEventListener('DOMContentLoaded', () => {
-    // Початкове додавання одного питання при завантаженні
-    if (elements.questionsContainer.children.length === 0) {
-        addQuestion(); 
+    // 1. Перевіряємо, чи є ID тесту для редагування
+    const idToEdit = localStorage.getItem('b2_test_to_edit');
+    
+    if (idToEdit) {
+        // Якщо є, завантажуємо тест у форму
+        loadTestForEditing(idToEdit);
+    } else {
+        // Якщо ні, створюємо нове питання, якщо контейнер порожній
+        if (elements.questionsContainer && elements.questionsContainer.children.length === 0) {
+            addQuestion(); 
+        }
     }
     
-    if (elements.addQuestionBtn) elements.addQuestionBtn.addEventListener('click', addQuestion);
+    // 2. Підключення обробників
+    if (elements.addQuestionBtn) elements.addQuestionBtn.addEventListener('click', () => addQuestion());
     if (elements.form) elements.form.addEventListener('submit', handleSubmit);
 });

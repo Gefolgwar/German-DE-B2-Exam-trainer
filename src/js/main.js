@@ -4,7 +4,7 @@ let userAnswers = {}; // { questionId: selectedIndex }
 let currentQuestionIndex = 0;
 let timerInterval = null;
 let timeLeftSeconds = 0;
-const testDurationPlaceholder = 1500; // 25 хвилин * 60 = 1500 секунд (лише для початкового значення)
+const testDurationPlaceholder = 1500; 
 
 // --- DOM Елементи ---
 const elements = {
@@ -35,7 +35,6 @@ function formatTime(seconds) {
 }
 
 function startTimer(durationSeconds) {
-    // Очищаємо попередній інтервал, якщо він існує
     if (timerInterval) clearInterval(timerInterval);
     
     timeLeftSeconds = durationSeconds;
@@ -47,7 +46,7 @@ function startTimer(durationSeconds) {
 
         if (timeLeftSeconds <= 0) {
             clearInterval(timerInterval);
-            finishTest(true); // Автоматичне завершення
+            finishTest(true); 
         }
     }, 1000);
 }
@@ -101,9 +100,10 @@ function renderQuestion() {
                 <span class="text-blue-700">${question.text}</span>
             </h3>
             
-            ${mediaHtml} <div id="options-list" class="space-y-3">
+            ${mediaHtml} 
+            
+            <div id="options-list" class="space-y-3">
                 ${question.options.map((option, index) => {
-                    // Перевіряємо, чи ця відповідь була обрана користувачем
                     const isChecked = userAnswers[question.id] === index;
                     const optionId = `q-${question.id}-option-${index}`;
                     
@@ -143,7 +143,7 @@ function updateNavigation() {
     // Прогрес
     elements.progressIndicator.textContent = `${current + 1}/${total}`;
     
-    // Кнопка Завершення (доступна на останньому питанні)
+    // Кнопка Завершення 
     if (current === total - 1) {
         elements.finishBtn.textContent = 'Завершити Тест';
         elements.finishBtn.classList.add('bg-green-600');
@@ -157,17 +157,14 @@ function updateNavigation() {
 
 // --- Обробники Подій ---
 
-// Ця функція доступна глобально, оскільки викликається з onclick у HTML
 window.handleAnswerChange = function(questionId, selectedIndex) {
     userAnswers[questionId] = selectedIndex;
-    // console.log(`Відповідь на питання ${questionId} збережено: ${selectedIndex}`);
 }
 
 function nextQuestion() {
     if (currentQuestionIndex < currentTest.questions.length - 1) {
         currentQuestionIndex++;
         renderQuestion();
-        // Прокручуємо на початок сторінки для зручності
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
@@ -184,14 +181,12 @@ function finishTest(isAutoFinish = false) {
     if (timerInterval) clearInterval(timerInterval);
     
     if (!isAutoFinish && !confirm('Ви впевнені, що хочете завершити тест?')) {
-        startTimer(timeLeftSeconds); // Відновлюємо таймер, якщо користувач скасував
+        startTimer(timeLeftSeconds); 
         return;
     }
 
-    // 1. Обчислення витраченого часу
     const timeSpent = currentTest.duration_minutes * 60 - timeLeftSeconds;
 
-    // 2. Збір всіх необхідних даних для сторінки результатів
     const resultsData = {
         testId: currentTest.test_id,
         title: currentTest.title,
@@ -202,10 +197,8 @@ function finishTest(isAutoFinish = false) {
         passingScore: currentTest.passing_score_points
     };
 
-    // 3. Збереження результатів у localStorage (використовуємо його для передачі даних)
     try {
         localStorage.setItem('b2_test_results', JSON.stringify(resultsData));
-        // 4. Перенаправлення
         window.location.href = 'results-page.html';
     } catch (error) {
         console.error("Помилка збереження результатів:", error);
@@ -213,12 +206,11 @@ function finishTest(isAutoFinish = false) {
     }
 }
 
-// --- Завантаження Тесту ---
+// --- Завантаження Тесту (test-page.html) ---
 
 async function loadTest(testPathOrId) {
     let testData = null;
     
-    // 1. Спроба завантажити з локального сховища (якщо це ID, починається з 'test-')
     if (testPathOrId.startsWith('test-')) {
         try {
             const customTests = JSON.parse(localStorage.getItem('b2_custom_tests')) || [];
@@ -228,7 +220,6 @@ async function loadTest(testPathOrId) {
         }
     } 
     
-    // 2. Спроба завантажити з файлу (якщо це шлях, не починається з 'test-')
     if (!testData) {
         try {
             const response = await fetch(testPathOrId);
@@ -250,30 +241,53 @@ async function loadTest(testPathOrId) {
 
     currentTest = testData;
     
-    // Ініціалізація UI
     elements.testTitle.textContent = currentTest.title;
     elements.currentTestTitle.textContent = currentTest.title;
     
-    // Скидаємо відповіді та індекс
     userAnswers = {};
     currentQuestionIndex = 0;
     
-    // Запуск таймера
     startTimer(currentTest.duration_minutes * 60);
 
-    // Відображення першого питання
     renderQuestion();
 }
 
-// --- Логіка index.html: Відображення списку тестів ---
+
+// НОВА ФУНКЦІЯ: Видалення тесту
+window.deleteTest = function(testId, testTitle) {
+    if (!confirm(`Ви впевнені, що хочете видалити тест "${testTitle}"? Цю дію не можна скасувати.`)) {
+        return;
+    }
+
+    try {
+        let existingTests = JSON.parse(localStorage.getItem('b2_custom_tests')) || [];
+        
+        // Фільтруємо масив, залишаючи всі тести, крім того, який потрібно видалити
+        const updatedTests = existingTests.filter(t => t.test_id !== testId);
+
+        // Зберігаємо оновлений масив
+        localStorage.setItem('b2_custom_tests', JSON.stringify(updatedTests));
+
+        // Перезавантажуємо список UI
+        loadTestList(); 
+
+        alert(`Тест "${testTitle}" успішно видалено.`);
+
+    } catch (e) {
+        console.error('Помилка видалення тесту:', e);
+        alert('Помилка: Не вдалося видалити тест.');
+    }
+}
+
+// --- Логіка index.html: Відображення списку тестів (ОНОВЛЕНО) ---
 
 async function loadTestList() {
-    if (!elements.testListContainer) return; // Виконується лише на index.html
+    if (!elements.testListContainer) return;
 
     let availableTests = [];
+    const standardTestPath = 'b2-test-1.json';
     
     // 1. Стандартний тест (з файлу)
-    const standardTestPath = 'b2-test-1.json';
     try {
         const response = await fetch(standardTestPath);
         if (response.ok) {
@@ -287,7 +301,6 @@ async function loadTestList() {
     // 2. Користувацькі тести (з localStorage)
     try {
         const customTests = JSON.parse(localStorage.getItem('b2_custom_tests')) || [];
-        // Додаємо прапорець isCustom і id для правильного завантаження
         customTests.forEach(t => availableTests.push({ ...t, isCustom: true, path: t.test_id }));
     } catch (e) {
         console.error('Помилка читання custom_tests:', e);
@@ -314,13 +327,32 @@ async function loadTestList() {
                     ${test.questions.length} питань | ${test.duration_minutes} хв | Прохідний бал: ${test.passing_score_points}
                 </p>
             </div>
-            <a 
-                href="#" 
-                data-test-path="${test.path}" 
-                class="start-test-btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-300 transform hover:scale-105"
-            >
-                Почати Тест
-            </a>
+            <div class="flex space-x-3">
+                ${test.isCustom ? `
+                    <button 
+                        type="button"
+                        data-test-id="${test.test_id}" 
+                        data-test-title="${test.title}"
+                        class="delete-test-btn bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full transition duration-300 transform hover:scale-105"
+                    >
+                        🗑️ Видалити
+                    </button>
+                    <a 
+                        href="#" 
+                        data-test-id="${test.test_id}" 
+                        class="edit-test-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-full transition duration-300 transform hover:scale-105"
+                    >
+                        📝 Редагувати
+                    </a>
+                ` : ''}
+                <a 
+                    href="#" 
+                    data-test-path="${test.path}" 
+                    class="start-test-btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-300 transform hover:scale-105"
+                >
+                    Почати Тест
+                </a>
+            </div>
         </div>
     `).join('');
     
@@ -329,9 +361,29 @@ async function loadTestList() {
         button.addEventListener('click', (e) => {
             e.preventDefault();
             const testPath = e.currentTarget.dataset.testPath;
-            // Зберігаємо шлях/ID в localStorage для test-page.html
             localStorage.setItem('b2_test_to_load', testPath);
             window.location.href = 'test-page.html';
+        });
+    });
+
+    // Обробник для Редагування
+    elements.testListContainer.querySelectorAll('.edit-test-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const testId = e.currentTarget.dataset.testId;
+            localStorage.setItem('b2_test_to_edit', testId); 
+            window.location.href = 'upload-test.html'; 
+        });
+    });
+
+    // НОВИЙ Обробник для Видалення
+    elements.testListContainer.querySelectorAll('.delete-test-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const testId = e.currentTarget.dataset.testId;
+            const testTitle = e.currentTarget.dataset.testTitle;
+            // Викликаємо нову глобальну функцію
+            deleteTest(testId, testTitle); 
         });
     });
 }
@@ -340,11 +392,9 @@ async function loadTestList() {
 // --- Головна Функція (Entry Point) ---
 
 function init() {
-    // Перевіряємо, на якій сторінці ми знаходимося
     const currentPath = window.location.pathname;
     
     if (currentPath.includes('test-page.html')) {
-        // Логіка для сторінки проходження тесту
         const testPathOrId = localStorage.getItem('b2_test_to_load');
         if (testPathOrId) {
             loadTest(testPathOrId);
@@ -354,16 +404,13 @@ function init() {
             if (elements.progressIndicator) elements.progressIndicator.textContent = '0/0';
         }
         
-        // Підключення обробників навігації
         if (elements.nextBtn) elements.nextBtn.addEventListener('click', nextQuestion);
         if (elements.prevBtn) elements.prevBtn.addEventListener('click', prevQuestion);
         if (elements.finishBtn) elements.finishBtn.addEventListener('click', finishTest);
 
     } else if (currentPath.includes('index.html') || currentPath === '/') {
-        // Логіка для головної сторінки
         loadTestList();
     }
-    // На results-page.html та upload-test.html логіка ініціалізації у відповідних JS-файлах.
 }
 
 document.addEventListener('DOMContentLoaded', init);
