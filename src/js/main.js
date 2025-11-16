@@ -68,8 +68,32 @@ function renderQuestion() {
     } else {
         elements.stimulusContainer.classList.add('hidden');
     }
+
+    // 2. Генерація HTML для медіа-контенту
+    let mediaHtml = ''; 
     
-    // 2. Створення HTML питання
+    // Додавання зображення (використовує URL)
+    if (question.image_url) {
+        mediaHtml += `
+            <div class="mb-4 text-center">
+                <img src="${question.image_url}" alt="Зображення до питання ${currentQuestionIndex + 1}" class="max-w-full h-auto mx-auto rounded-lg shadow-md">
+            </div>
+        `;
+    }
+    
+    // Додавання аудіо (використовує URL)
+    if (question.audio_url) {
+        mediaHtml += `
+            <div class="mb-4 text-center">
+                <audio controls class="w-full max-w-sm mx-auto">
+                    <source src="${question.audio_url}" type="audio/mpeg">
+                    Ваш браузер не підтримує аудіо елемент.
+                </audio>
+            </div>
+        `;
+    }
+    
+    // 3. Створення HTML питання
     const questionHtml = `
         <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-600">
             <h3 class="text-xl font-semibold text-gray-900 mb-4">
@@ -77,7 +101,7 @@ function renderQuestion() {
                 <span class="text-blue-700">${question.text}</span>
             </h3>
             
-            <div id="options-list" class="space-y-3">
+            ${mediaHtml} <div id="options-list" class="space-y-3">
                 ${question.options.map((option, index) => {
                     // Перевіряємо, чи ця відповідь була обрана користувачем
                     const isChecked = userAnswers[question.id] === index;
@@ -104,7 +128,7 @@ function renderQuestion() {
 
     elements.questionsContainer.innerHTML = questionHtml;
 
-    // 3. Оновлення Навігації та Прогресу
+    // 4. Оновлення Навігації та Прогресу
     updateNavigation();
 }
 
