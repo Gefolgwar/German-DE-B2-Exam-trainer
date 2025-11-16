@@ -10,6 +10,9 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       }
+      .stat-item {
+        @apply p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl;
+      }
     </style>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
@@ -25,20 +28,25 @@
     <!-- Main Content: Контейнер для результатів -->
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 mt-10">
       <section class="text-center mb-8">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-2">
-          Ваші Результати Тесту
-        </h2>
-        <p class="text-xl text-gray-600" id="test-summary-title">Тест: ...</p>
+        <h2 class="text-4xl font-extrabold text-gray-900">Тест Завершено!</h2>
+        <p
+          id="test-summary-title"
+          class="text-xl text-gray-600 mt-2 font-medium"
+        >
+          ...
+        </p>
       </section>
 
-      <!-- Картка із загальною статистикою -->
-      <div
-        id="summary-card"
-        class="bg-white p-8 rounded-xl shadow-2xl mb-10 grid grid-cols-3 gap-4 text-center"
-      >
-        <!-- Сюди буде завантажено статистику -->
+      <!-- Блок зі статистикою (Ф6) -->
+      <div class="grid md:grid-cols-4 gap-4 text-center mb-10">
+        <div class="stat-item col-span-4 md:col-span-1">
+          <p class="text-5xl font-extrabold text-blue-600" id="result-total-q">
+            0
+          </p>
+          <p class="text-gray-500 mt-1">Всього питань</p>
+        </div>
         <div class="stat-item">
-          <p class="text-5xl font-extrabold text-blue-600" id="result-points">
+          <p class="text-5xl font-extrabold text-red-600" id="result-points">
             0
           </p>
           <p class="text-gray-500 mt-1">Набрано балів</p>
@@ -70,17 +78,17 @@
 
       <!-- Контейнер для детального звіту (Ф7, Ф8) -->
       <section id="detailed-report-container" class="space-y-6">
-        <!-- Детальний звіт буде тут -->
-        <div class="text-center text-gray-500 p-10">Обробка результатів...</div>
+        <!-- Деталі питань будуть завантажені сюди JavaScript'ом -->
       </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-gray-200 text-center py-4 mt-auto text-gray-600 text-sm">
-      &copy; 2025 B2 Test Trainer Project
+    <footer class="bg-white p-4 mt-12 shadow-inner">
+      <div class="container mx-auto max-w-4xl text-center text-gray-500">
+        &copy; 2025 B2 German Exam Trainer
+      </div>
     </footer>
 
-    <!-- JS для обробки результатів -->
-    <script src="src/js/results.js"></script>
+    <!-- Завантаження JavaScript для результатів -->
+    <script type="module" src="src/js/results.js"></script>
   </body>
 </html>

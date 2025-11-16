@@ -26,37 +26,47 @@
         class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap"
       >
         <h1 class="text-xl font-bold text-gray-800" id="current-test-title">
-          B2 Test: Reading
+          B2 Test Trainer
         </h1>
 
-        <div class="flex items-center space-x-4 mt-2 sm:mt-0">
-          <!-- Таймер (Ф3) -->
-          <div
-            class="bg-red-100 text-red-700 font-extrabold px-3 py-1 rounded-full shadow-md text-lg"
-          >
-            ⏱️ <span id="timer">00:00</span>
+        <!-- Таймер (Ф3) -->
+        <div class="flex items-center space-x-4 mt-2 md:mt-0">
+          <div class="text-lg font-semibold text-gray-600">
+            Питання:
+            <span id="progress-indicator" class="text-blue-600">0/0</span>
           </div>
-          <!-- Панель Прогресу (Ф4) -->
-          <div class="text-gray-600 font-medium" id="progress-indicator">
-            Питання: 1/30
+          <div class="flex items-center bg-blue-100 p-2 rounded-lg shadow-sm">
+            <svg
+              class="w-6 h-6 text-blue-600 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <span id="timer" class="text-2xl font-extrabold text-blue-800"
+              >00:00</span
+            >
           </div>
         </div>
       </div>
     </header>
 
-    <!-- Main Content: Контейнер для питань -->
-    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 mt-4">
-      <!-- Контейнер для відображення стимульного тексту (Lesetext) -->
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
+      <!-- Контейнер для стимулу (текст, який стосується кількох питань) -->
       <section
         id="stimulus-container"
-        class="bg-white p-6 rounded-lg shadow-xl mb-6"
+        class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gray-400 mb-8 hidden"
       >
-        <h3 class="text-2xl font-semibold text-gray-800 mb-3 border-b pb-2">
-          Матеріал для роботи (Stimulus)
-        </h3>
-        <p class="text-gray-700" id="stimulus-text">
-          Текст матеріалу буде завантажено тут...
-        </p>
+        <h3 class="text-lg font-bold text-gray-800 mb-3">Стимул до питання:</h3>
+        <p id="stimulus-text" class="text-gray-700 whitespace-pre-line"></p>
       </section>
 
       <!-- Контейнер для відображення питань та варіантів -->
@@ -91,13 +101,14 @@
         <button
           id="next-btn"
           class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
+          disabled
         >
           Наступне →
         </button>
       </div>
     </footer>
 
-    <!-- Основний JavaScript-файл з логікою -->
-    <script src="src/js/main.js"></script>
+    <!-- Завантаження головного JavaScript файлу -->
+    <script type="module" src="src/js/main.js"></script>
   </body>
 </html>
