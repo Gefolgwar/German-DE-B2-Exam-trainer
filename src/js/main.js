@@ -475,29 +475,42 @@ function prevQuestion() {
 }
 
 /**
+ * Обробник, що спрацьовує перед закриттям/оновленням сторінки тесту.
+ * @param {Event} event - Подія beforeunload.
+ */
+function handleBeforeUnload(event) {
+    // Стандартний спосіб для виклику діалогового вікна підтвердження.
+    event.preventDefault();
+    // Для сумісності зі старими браузерами.
+    event.returnValue = '';
+    return 'Ви впевнені, що хочете покинути сторінку? Весь прогрес тесту буде втрачено. Для навігації по тесту використовуйте кнопки "Наступне" та "Попереднє".';
+}
+
+/**
  * Завершує тест та перенаправляє на сторінку результатів.
  */
-function finishTest(timeExpired = false) {
-    if (!confirm(timeExpired ? "Час вийшов. Завершити тест?" : "Ви впевнені, що хочете завершити тест?")) {
+function finishTest(forceFinish = false) {
+    if (!currentTest || (!forceFinish && !confirm('Ви впевнені, що хочете завершити тест?'))) {
         return;
     }
+    // Видаляємо слухача, щоб уникнути попередження при штатному завершенні.
+    window.removeEventListener('beforeunload', handleBeforeUnload);
 
-    clearInterval(timerInterval);
+    if (timerInterval) clearInterval(timerInterval);
     
     // Зберігаємо результати у localStorage для results-page.html
     const results = {
         testId: currentTest.test_id,
-        testTitle: currentTest.title,
-        duration: currentTest.duration_minutes,
+        title: currentTest.title,
         passingScore: currentTest.passing_score_points,
-        questionsTotal: currentTest.questions_total,
         timeSpent: (currentTest.duration_minutes * 60) - timeLeftSeconds,
         userAnswers: userAnswers,
         testData: currentTest
     };
 
     localStorage.setItem('b2_test_results', JSON.stringify(results));
-    window.location.href = 'results-page.html';
+    // Використовуємо replace(), щоб сторінка test-page.html не залишалася в історії.
+    window.location.replace('results-page.html');
 }
 
 
@@ -575,15 +588,10 @@ function init() {
         if (elements.nextBtn) elements.nextBtn.addEventListener('click', nextQuestion);
         if (elements.prevBtn) elements.prevBtn.addEventListener('click', prevQuestion);
         if (elements.finishBtn) elements.finishBtn.addEventListener('click', () => finishTest(false));
+
+        // Додаємо попередження при спробі покинути сторінку
+        window.addEventListener('beforeunload', handleBeforeUnload);
     }
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
-// Обробник для bfcache (коли користувач повертається на сторінку кнопкою "назад")
-window.addEventListener('pageshow', function(event) {
-    // event.persisted буде true, якщо сторінка завантажена з bfcache
-    if (event.persisted) {
-        window.location.reload();
-    }
-});
