@@ -20,7 +20,6 @@
     </style>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col noselect">
-    <!-- Header: Таймер та Прогрес (Фіксований) -->
     <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
       <div
         class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap"
@@ -29,7 +28,6 @@
           B2 Test Trainer
         </h1>
 
-        <!-- Таймер (Ф3) -->
         <div class="flex items-center space-x-4 mt-2 md:mt-0">
           <div class="text-lg font-semibold text-gray-600">
             Питання:
@@ -58,30 +56,29 @@
       </div>
     </header>
 
-    <!-- Main Content -->
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
-      <!-- Контейнер для стимулу (текст, який стосується кількох питань) -->
       <section
         id="stimulus-container"
-        class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gray-400 mb-8 hidden"
+        class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-400 mb-8"
       >
-        <h3 class="text-lg font-bold text-gray-800 mb-3">Стимул до питання:</h3>
-        <p id="stimulus-text" class="text-gray-700 whitespace-pre-line"></p>
+        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">
+          Завдання до Частини:
+        </h3>
+
+        <div id="part-instruction-content" class="mt-4 mb-4"></div>
+
+        <div id="part-media-content" class="space-y-4"></div>
       </section>
 
-      <!-- Контейнер для відображення питань та варіантів -->
       <section id="questions-container" class="space-y-8">
-        <!-- Питання будуть динамічно завантажені тут JavaScript'ом -->
         <div class="text-center text-gray-500 p-10">Завантаження тесту...</div>
       </section>
     </main>
 
-    <!-- Footer: Навігація (Фіксований) -->
     <footer class="bg-white shadow-inner p-4 sticky bottom-0 z-10">
       <div
         class="container mx-auto max-w-4xl flex justify-between items-center"
       >
-        <!-- Навігація Питаннями (Ф4) -->
         <button
           id="prev-btn"
           class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
@@ -90,7 +87,6 @@
           ← Попереднє
         </button>
 
-        <!-- Кнопка Завершення (Ф5) -->
         <button
           id="finish-btn"
           class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition duration-300 disabled:opacity-50"
@@ -108,7 +104,16 @@
       </div>
     </footer>
 
-    <!-- Завантаження головного JavaScript файлу -->
     <script type="module" src="src/js/main.js"></script>
+    <script>
+      // Цей скрипт вирішує проблему з кешуванням сторінки (bfcache)
+      // при поверненні на неї кнопкою "назад" у браузері.
+      window.addEventListener("pageshow", function (event) {
+        // event.persisted буде true, якщо сторінка відновлена з кешу.
+        if (event.persisted) {
+          window.location.reload();
+        }
+      });
+    </script>
   </body>
 </html>

@@ -10,6 +10,9 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       }
+      .whitespace-pre-wrap {
+        white-space: pre-wrap;
+      }
     </style>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
@@ -36,50 +39,48 @@
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
       <h2 class="text-3xl font-bold text-gray-800 mb-6" id="form-title">
-        ➕ Створити Власний Тест
+        Створити Власний Тест B2
       </h2>
 
       <form
         id="test-upload-form"
-        class="bg-white p-6 md:p-8 rounded-xl shadow-2xl space-y-6"
+        class="bg-white p-6 rounded-xl shadow-lg space-y-8"
       >
-        <fieldset class="space-y-4">
-          <legend class="text-2xl font-bold text-blue-700 mb-4">
-            Основні Параметри
+        <fieldset class="border p-5 rounded-lg">
+          <legend class="text-2xl font-bold text-blue-700 px-2">
+            Загальні Параметри Тесту
           </legend>
-          <div>
-            <label for="test-title" class="block text-gray-700 font-medium"
-              >Назва Тесту</label
-            >
-            <input
-              type="text"
-              id="test-title"
-              class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Наприклад: Лексика Тема 5"
-              required
-            />
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label for="test-title" class="block text-gray-700 font-medium"
+                >Назва Тесту</label
+              >
+              <input
+                type="text"
+                id="test-title"
+                class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                required
+                placeholder="Наприклад: B2 Lesen Teil 1"
+              />
+            </div>
             <div>
               <label
                 for="duration-minutes"
                 class="block text-gray-700 font-medium"
-                >Тривалість (хвилини)</label
+                >Тривалість (хв)</label
               >
               <input
                 type="number"
                 id="duration-minutes"
                 class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 min="1"
-                value="25"
+                value="45"
                 required
               />
             </div>
-
             <div>
               <label for="passing-score" class="block text-gray-700 font-medium"
-                >Прохідний бал (мінімум правильних)</label
+                >Прохідний Бал</label
               >
               <input
                 type="number"
@@ -93,19 +94,18 @@
           </div>
         </fieldset>
 
-        <fieldset>
-          <legend class="text-2xl font-bold text-blue-700 mb-4 pt-4 border-t">
-            Питання
+        <fieldset class="border p-5 rounded-lg">
+          <legend class="text-2xl font-bold text-blue-700 px-2">
+            Частини Завдань
           </legend>
-          <div id="questions-container" class="space-y-6"></div>
-
+          <div id="parts-container" class="space-y-8 mt-4"></div>
           <div class="mt-6 text-center">
             <button
               type="button"
-              id="add-question-btn"
-              class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-full transition duration-150 shadow-md"
+              id="add-part-btn"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md"
             >
-              + Додати Питання
+              ➕ Додати Частину Завдання
             </button>
           </div>
         </fieldset>
@@ -117,14 +117,14 @@
             type="submit"
             class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-12 rounded-full text-lg shadow-lg transform hover:scale-105 transition duration-300 ease-in-out"
           >
-            Зберегти та Почати Тест
+            💾 Зберегти Тест (Завантажити JSON)
           </button>
         </div>
       </form>
     </main>
 
     <footer class="text-center p-4 text-gray-500 text-sm">
-      &copy; 2025 B2 Test Trainer. Усі права захищені.
+      &copy; 2023 B2 Test Trainer
     </footer>
 
     <script src="src/js/upload.js"></script>

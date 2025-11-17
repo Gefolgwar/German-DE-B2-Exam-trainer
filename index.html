@@ -36,19 +36,45 @@
     </header>
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
-      <section class="text-center py-10 bg-white rounded-xl shadow-lg">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">
-          Підготовка до B2 з німецької
-        </h2>
-        <p class="text-xl text-gray-600 mb-6">
-          Обирайте тест або створіть власний
-        </p>
-        <a
-          href="upload-test.html"
-          class="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 ease-in-out"
-        >
-          Створити Тест
-        </a>
+      <section
+        class="bg-white p-6 rounded-xl shadow-lg flex justify-between items-center flex-wrap gap-4"
+      >
+        <h2 class="text-3xl font-bold text-gray-800">Тести</h2>
+
+        <div class="flex flex-wrap gap-3">
+          <a
+            href="upload-test.html"
+            id="create-new-test-btn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150"
+          >
+            ➕ Створити Новий Тест
+          </a>
+
+          <label
+            for="upload-json-file"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 cursor-pointer"
+          >
+            ⬆️ Завантажити JSON
+            <input
+              type="file"
+              id="upload-json-file"
+              accept=".json"
+              class="hidden"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="mt-8">
+        <h3 class="text-2xl font-bold text-gray-700 mb-4 border-b pb-2">
+          Доступні Тести
+        </h3>
+
+        <div id="test-list-container" class="space-y-4">
+          <div class="text-center p-8 bg-white rounded-xl shadow">
+            Завантаження даних...
+          </div>
+        </div>
       </section>
 
       <section class="grid md:grid-cols-3 gap-8 mt-12 text-center">
@@ -70,20 +96,12 @@
           <p class="text-gray-600">Зручний інтерфейс на будь-якому пристрої.</p>
         </div>
       </section>
-
-      <section class="mt-12">
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">Доступні Тести</h2>
-        <div id="test-list-container" class="space-y-4"></div>
-      </section>
     </main>
 
-    <footer class="mt-auto bg-gray-200 p-4 text-center text-gray-600">
-      <div class="container mx-auto max-w-4xl">
-        <p>&copy; 2025 B2 Test Trainer</p>
-      </div>
+    <footer class="text-center p-4 text-gray-500 text-sm mt-8">
+      &copy; 2023 B2 Test Trainer
     </footer>
 
     <script src="src/js/main.js"></script>
-    <script src="src/js/results.js"></script>
   </body>
 </html>

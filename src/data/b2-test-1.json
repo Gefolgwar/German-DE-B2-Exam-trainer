@@ -1,47 +1,69 @@
 {
-  "test_id": "b2-test-1-lesen-teil-1",
-  "title": "Lesen Teil 1: Blog-Kommentare (25 Min)",
+  "test_id": "b2-test-1-lesen-teil-1-v2",
+  "title": "Lesen Teil 1: Блог-Коментарі (25 Хв)",
   "duration_minutes": 25,
-  "passing_score_points": 15,
-  "questions": [
+  "passing_score_points": 2,
+  "questions_total": 3,
+  "parts": [
     {
-      "id": 1,
-      "text": "Sie lesen fünf Kommentare zu einem Zeitungsartikel. Wählen Sie, welcher Kommentar (1-5) zu welcher Situation (A-F) passt. (Hier nur Beispieltext)",
-      "stimulus": "Der Klimawandel betrifft uns alle und wir müssen jetzt handeln. Aber wie können wir wirklich etwas bewirken, ohne unseren Lebensstandard völlig zu opfern? Die Debatte ist hitzig, aber Lösungen müssen her.",
-      "type": "single_choice",
-      "options": [
-        "A. Kommentar zum Thema 'Verantwortung des Einzelnen'.",
-        "B. Kommentar zur Rolle der Wirtschaft und Industrie.",
-        "C. Kommentar über die Notwendigkeit internationaler Abkommen."
-      ],
-      "correct_answer_index": 1, 
-      "explanation": "Dieser Kommentar betont die Rolle großer Unternehmen (Wirtschaft) bei der Umstellung auf nachhaltige Produktion."
-    },
-    {
-      "id": 2,
-      "text": "Welcher Satz drückt eine klare Ablehnung der vorgeschlagenen Maßnahmen aus?",
-      "stimulus": "Es geht nicht nur um Verbote. Wir brauchen Anreize, um Menschen zu motivieren, grüne Technologien zu nutzen.",
-      "type": "single_choice",
-      "options": [
-        "A. 'Ich stimme zu, Anreize sind der richtige Weg.'",
-        "B. 'Diese Maßnahmen sind sinnlos und übertrieben!'",
-        "C. 'Es fehlt noch eine genaue Kostenanalyse.'"
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Die Option 'Diese Maßnahmen sind sinnlos und übertrieben!' drückt die deutlichste Ablehnung aus."
-    },
-    {
-      "id": 3,
-      "text": "Wählen Sie die korrekte grammatikalische Ergänzung.",
-      "stimulus": "Trotz des ...",
-      "type": "single_choice",
-      "options": [
-        "A. ... schlechtes Wetters.",
-        "B. ... schlechten Wetters.",
-        "C. ... schlechte Wetter."
-      ],
-      "correct_answer_index": 1,
-      "explanation": "Die Präposition 'Trotz' verlangt den Genitiv. Das Nomen 'Wetter' (Neutrum) und das Adjektiv erhalten die Endung -en im Genitiv: 'des schlechten Wetters'."
+      "part_id": "lesen-teil-1-kommentare",
+      "instruction": "Lesen Sie zuerst die fünf Texte (1–3) im блоці 'Тексти для читання'. Lesen Sie dann die десять Überschriften/завдань und entscheiden Sie, какая Überschrift am besten passt. Tragen Sie Ihre Lösungen bei den Aufgaben 1–3 ein.",
+      "media": {
+        "texts": [
+          {
+            "id": "Einleitung",
+            "content": "Der Klimawandel betrifft uns alle und wir müssen jetzt handeln. Aber wie können wir wirklich etwas bewirken, ohne unseren Lebensstandard völlig zu opfern? Die Debatte ist hitzig, aber Lösungen müssen her."
+          },
+          {
+            "id": "Text 1",
+            "content": "Dieser Kommentar betont die Rolle großer Unternehmen (Wirtschaft) bei der Umstellung auf nachhaltige Produktion."
+          },
+          {
+            "id": "Text 2",
+            "content": "Es geht nicht nur um Verbote. Wir brauchen Anreize, um Menschen zu motivieren, grüne Technologien zu nutzen."
+          }
+        ],
+        "images": [
+        ]
+      },
+      "questions": [
+        {
+          "id": "1",
+          "text": "Wählen Sie die passende Überschrift/Thema für Text 1.",
+          "type": "single_choice", 
+          "options": [
+            "A. Kommentar zum Thema 'Verantwortung des Einzelnen'.",
+            "B. Kommentar zur Rolle der Wirtschaft und Industrie.",
+            "C. Kommentar über die Notwendigkeit internationaler Abkommen."
+          ],
+          "correct_answer_index": 1,
+          "explanation": "Текст 1 безпосередньо стосується ролі бізнесу та промисловості."
+        },
+        {
+          "id": "2",
+          "text": "Welcher Satz drückt eine klare Ablehnung der vorgeschlagenen Maßnahmen aus?",
+          "type": "single_choice",
+          "options": [
+            "A. 'Ich stimme zu, Anreize sind der richtige Weg.'",
+            "B. 'Diese Maßnahmen sind sinnlos und übertrieben!'",
+            "C. 'Es fehlt noch eine genaue Kostenanalyse.'"
+          ],
+          "correct_answer_index": 1,
+          "explanation": "Варіант B явно висловлює негативне ставлення та відмову від заходів."
+        },
+        {
+          "id": "3",
+          "text": "Wählen Sie die korrekte grammatikalische Ergänzung. (Trotz des ...)",
+          "type": "single_choice",
+          "options": [
+            "A. ... schlechtes Wetters.",
+            "B. ... schlechten Wetters.",
+            "C. ... schlechte Wetter."
+          ],
+          "correct_answer_index": 1,
+          "explanation": "Прийменник 'Trotz' вимагає Genitiv (кого? чого?). Правильна відмінкова форма: 'Trotz des schlechten Wetters'."
+        }
+      ]
     }
   ]
 }
