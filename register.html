@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Реєстрація - B2 Test Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+        B2 Test Trainer
+      </h1>
+      <h2 class="text-xl font-semibold text-center text-gray-600 mb-8">
+        Створення облікового запису
+      </h2>
+
+      <form id="register-form" class="space-y-6">
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700"
+            >Email</label
+          >
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700"
+            >Пароль (мін. 6 символів)</label
+          >
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            minlength="6"
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <button
+            type="submit"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Зареєструватися
+          </button>
+        </div>
+      </form>
+      <div
+        id="error-message"
+        class="hidden mt-4 text-center text-red-600"
+      ></div>
+      <div class="mt-6 text-center text-sm text-gray-600">
+        Вже є обліковий запис?
+        <a
+          href="login.html"
+          class="font-medium text-blue-600 hover:text-blue-500"
+          >Увійти</a
+        >
+      </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="src/js/firebase-config.js"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        createUserWithEmailAndPassword,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        setDoc,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+      const firebaseConfig = window.firebaseConfig || {};
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      const registerForm = document.getElementById("register-form");
+      const errorMessage = document.getElementById("error-message");
+
+      registerForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = registerForm.email.value;
+        const password = registerForm.password.value;
+
+        errorMessage.classList.add("hidden");
+
+        try {
+          const userCredential = await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+          const user = userCredential.user;
+
+          // Створюємо запис для користувача в колекції 'users'
+          await setDoc(doc(db, "users", user.uid), {
+            email: user.email,
+            role: "user", // Всі нові користувачі за замовчуванням мають роль 'user'
+            createdAt: new Date().toISOString(),
+          });
+
+          // Перенаправляємо на головну сторінку після успішної реєстрації
+          window.location.href = "index.html";
+        } catch (error) {
+          let errorText = "Помилка реєстрації.";
+          if (error.code === "auth/email-already-in-use") {
+            errorText = "Цей email вже використовується.";
+          } else if (error.code === "auth/weak-password") {
+            errorText =
+              "Пароль занадто слабкий. Він має містити щонайменше 6 символів.";
+          }
+          errorMessage.textContent = errorText;
+          errorMessage.classList.remove("hidden");
+          console.error("Registration error:", error);
+        }
+      });
+    </script>
+  </body>
+</html>

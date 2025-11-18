@@ -37,6 +37,12 @@ function generateQuestionHtml({ q, originalIndex }) {
     const isCorrect = detailedResult.isCorrect;
     const userAnswerIndex = detailedResult.userAnswerIndex;
 
+    const statusText = isCorrect
+      ? "(Правильно)"
+      : userAnswerIndex === null || userAnswerIndex === undefined
+      ? "(Помилка - нічого не обрано)"
+      : "(Помилка)";
+
     let optionsHtml = '';
     q.options.forEach((option, optionIndex) => {
         let optionClass = 'text-gray-700';
@@ -67,7 +73,7 @@ function generateQuestionHtml({ q, originalIndex }) {
                  <h4 class="text-xl font-bold text-gray-800">
                     Запитання ${originalIndex + 1}
                     <span class="text-sm font-normal ml-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}">
-                        ${isCorrect ? '(Правильно)' : '(Помилка)'}
+                        ${statusText}
                     </span>
                 </h4>
             </div>

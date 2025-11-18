@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Вхід - B2 Test Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+        B2 Test Trainer
+      </h1>
+      <h2 class="text-xl font-semibold text-center text-gray-600 mb-8">
+        Вхід для користувачів
+      </h2>
+
+      <form id="login-form" class="space-y-6">
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700"
+            >Email</label
+          >
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700"
+            >Пароль</label
+          >
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <button
+            type="submit"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Увійти
+          </button>
+        </div>
+      </form>
+      <div class="text-sm text-center mt-4">
+        <a
+          href="#"
+          id="forgot-password-link"
+          class="font-medium text-gray-600 hover:text-blue-500"
+          >Забули пароль?</a
+        >
+      </div>
+      <div
+        id="error-message"
+        class="hidden mt-4 text-center text-red-600"
+      ></div>
+      <div class="mt-6 text-center text-sm text-gray-600">
+        Немає облікового запису?
+        <a
+          href="register.html"
+          class="font-medium text-blue-600 hover:text-blue-500"
+          >Зареєструватися</a
+        >
+      </div>
+    </div>
+
+    <!-- Конфігурація Firebase для локальної розробки -->
+    <script src="src/js/firebase-config.js"></script>
+
+    <!-- Firebase SDKs та Логіка -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        sendPasswordResetEmail,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+
+      // Використання глобальної конфігурації
+      const firebaseConfig =
+        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
+        window.firebaseConfig ||
+        (typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {});
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      const loginForm = document.getElementById("login-form");
+      const errorMessage = document.getElementById("error-message");
+      const forgotPasswordLink = document.getElementById(
+        "forgot-password-link"
+      );
+
+      // Якщо користувач вже залогінений, перенаправляємо його на головну
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          // Перевіряємо, чи ми вже не на цільовій сторінці, щоб уникнути зайвого перенаправлення
+          if (!window.location.href.includes("index.html")) {
+            window.location.href = "index.html";
+          }
+        }
+      });
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Скидаємо повідомлення про помилку перед новою спробою
+        errorMessage.classList.add("hidden");
+        errorMessage.textContent = "";
+
+        const email = loginForm.email.value;
+        const password = loginForm.password.value;
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          // onAuthStateChanged спрацює і перенаправить на index.html
+        } catch (error) {
+          // Обробка помилок входу
+          let errorText = "Помилка входу: невірний email або пароль.";
+          console.error("Login error:", error.code, error.message);
+
+          if (
+            error.code === "auth/user-not-found" ||
+            error.code === "auth/wrong-password"
+          ) {
+            errorText = "Невірний email або пароль. Перевірте свої дані.";
+          } else if (error.code === "auth/invalid-email") {
+            errorText = "Некоректний формат електронної пошти.";
+          } else {
+            errorText = `Помилка: ${error.message}`;
+          }
+
+          errorMessage.textContent = errorText;
+          errorMessage.classList.remove("hidden");
+        }
+      });
+
+      // Обробник для посилання "Забули пароль?"
+      forgotPasswordLink.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const email = prompt(
+          "Будь ласка, введіть вашу електронну адресу, щоб скинути пароль:"
+        );
+        if (email) {
+          try {
+            await sendPasswordResetEmail(auth, email);
+            alert(
+              `Лист для відновлення пароля надіслано на ${email}. Будь ласка, перевірте свою поштову скриньку (не забудьте перевірити спам).`
+            );
+            errorMessage.classList.add("hidden");
+          } catch (error) {
+            console.error("Password reset error:", error);
+            errorMessage.textContent = `Помилка: не вдалося надіслати лист. Перевірте правильність email.`;
+            errorMessage.classList.remove("hidden");
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

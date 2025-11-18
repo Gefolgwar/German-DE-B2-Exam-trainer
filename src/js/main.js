@@ -1,4 +1,4 @@
-import { collection, onSnapshot, doc, getDoc, addDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import { collection, onSnapshot, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 // Глобальний стан додатку (для test-page.html)
 let currentTest = null;
@@ -29,6 +29,12 @@ const elements = {
     createNewTestBtn: document.getElementById('create-new-test-btn'), 
 };
 
+let allTests = []; // Глобальний масив для зберігання тестів та їх статистики
+let sortOrder = {
+    completions: 'desc', // 'asc' or 'desc'
+    score: 'desc'
+};
+
 // =========================================================================
 // === Firebase & Допоміжні функції для роботи з даними (замінюють localStorage) ===
 // =========================================================================
@@ -39,8 +45,9 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
  * Генерує HTML-розмітку для одного тесту в списку.
  * @param {object} test - Об'єкт тесту з Firestore.
  */
-function generateTestItemHtml(test) {
-    const canEdit = test.userId === window.userId; // Визначаємо, чи може поточний користувач редагувати/видаляти
+function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
+    // Адмін може редагувати все, користувач - тільки своє
+    const canEdit = window.userRole === 'admin' || test.userId === window.userId;
 
     const actionButtons = `
         <button 
@@ -59,7 +66,7 @@ function generateTestItemHtml(test) {
             class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
             data-test-id="${test.test_id}"
         >
-            ⬇️ JSON
+            ⬇️ Скачати
         </button>
         <button 
             class="btn-delete bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
@@ -78,6 +85,14 @@ function generateTestItemHtml(test) {
                     Питань: ${test.questions_total} | Хв: ${test.duration_minutes} | Прохідний бал: ${test.passing_score_points}
                 </p>
                 <p class="text-xs text-gray-400 mt-1">ID: ${test.test_id}</p>
+                <div class="mt-2 text-xs text-gray-500">
+                    <span class="inline-block bg-gray-200 rounded-full px-2 py-1">
+                        Проходжень: <strong>${stats.completions}</strong>
+                    </span>
+                    <span class="inline-block bg-gray-200 rounded-full px-2 py-1 ml-2">
+                        Середній бал: <strong>${stats.avgScore.toFixed(1)}%</strong>
+                    </span>
+                </div>
             </div>
             
             <div class="flex flex-wrap gap-2">
@@ -90,50 +105,72 @@ function generateTestItemHtml(test) {
 /**
  * Завантажує список доступних тестів з Firestore.
  */
-function loadAvailableTests() {
-    if (!window.db || !window.isAuthReady) {
+async function loadAvailableTests() {
+    if (!window.db || !window.isAuthReady || !window.userId) {
         // Якщо Firebase ще не готовий, чекаємо
-        console.warn("Firestore not ready yet. Waiting...");
+        console.warn("Firestore not ready or user not logged in. Waiting...");
         setTimeout(loadAvailableTests, 200);
         return;
     }
+    
+    // 1. Завантажуємо статистику поточного користувача
+    const userResultsRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
+    const statsSnapshot = await getDocs(userResultsRef);
+    const testStats = {}; // { testId: { completions: number, totalPercent: number } }
 
+    statsSnapshot.forEach(doc => {
+        const result = doc.data();
+        if (!testStats[result.testId]) {
+            testStats[result.testId] = { completions: 0, totalPercent: 0 };
+        }
+        testStats[result.testId].completions++;
+        const percent = result.totalQuestions > 0 ? (result.correctPoints / result.totalQuestions) * 100 : 0;
+        testStats[result.testId].totalPercent += percent;
+    });
+
+    // 2. Завантажуємо тести і додаємо до них статистику
     const testCollectionRef = collection(window.db, `artifacts/${appId}/public/data/tests`);
-
-    // onSnapshot забезпечує оновлення в реальному часі
     onSnapshot(testCollectionRef, (snapshot) => {
-        const tests = [];
+        allTests = [];
         snapshot.forEach(doc => {
             const testData = doc.data();
-            // Додаємо ID документа як ID тесту
-            tests.push({ ...testData, test_id: doc.id }); 
+            const stats = testStats[doc.id] || { completions: 0, totalPercent: 0 };
+            allTests.push({ ...testData, test_id: doc.id, stats: { completions: stats.completions, avgScore: (stats.completions > 0) ? (stats.totalPercent / stats.completions) : 0 } });
         });
-
-        if (elements.testListContainer) {
-            if (tests.length === 0) {
-                elements.testListContainer.innerHTML = `
-                    <div class="text-center p-8 bg-white rounded-xl shadow text-gray-500">
-                        Тестів не знайдено. Будь ласка, створіть новий тест, натиснувши "➕ Створити Свій Тест".
-                    </div>
-                `;
-            } else {
-                elements.testListContainer.innerHTML = tests
-                    .map(generateTestItemHtml)
-                    .join('');
-                attachTestActionListeners(); // Прикріплюємо слухачів після рендерингу
-            }
-        }
+        renderAllTests();
     }, (error) => {
         console.error("Error fetching tests from Firestore:", error);
         if (elements.testListContainer) {
-            elements.testListContainer.innerHTML = `
-                <div class="text-center p-8 bg-red-100 text-red-700 rounded-xl shadow">
-                    Помилка завантаження тестів: ${error.message}
-                </div>
-            `;
+            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження тестів: ${error.message}</div>`;
         }
     });
 }
+
+/**
+ * Renders the list of all tests.
+ */
+function renderAllTests() {
+    if (!elements.testListContainer) return;
+
+    if (allTests.length === 0) {
+        elements.testListContainer.innerHTML = `
+            <div class="text-center p-8 bg-white rounded-xl shadow text-gray-500">
+                Тестів не знайдено. Будь ласка, створіть новий тест.
+            </div>
+        `;
+    } else {
+        elements.testListContainer.innerHTML = allTests.map(test => {
+            return generateTestItemHtml(test, test.stats);
+        }).join('');
+        
+        if (window.userRole === 'admin') {
+            document.getElementById('admin-controls')?.classList.remove('hidden');
+            document.getElementById('admin-panel-link')?.classList.remove('hidden');
+        }
+        attachTestActionListeners();
+    }
+}
+
 
 /**
  * Прикріплює обробники подій до кнопок керування тестами.
@@ -475,10 +512,21 @@ async function finishTest(isTimedOut) {
     try {
         if (!window.db || !window.userId) throw new Error("Firebase або User ID недоступні.");
 
+        // 1. Зберігаємо детальний результат для користувача
         const resultsCollectionRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
         const newResultRef = await addDoc(resultsCollectionRef, resultData);
 
-        // Зберігаємо ID результату та ID тесту, щоб сторінка результатів могла їх завантажити
+        // 2. Зберігаємо анонімний результат для загальної статистики
+        const publicResultsRef = collection(window.db, `artifacts/${appId}/public/data/public_results`);
+        await addDoc(publicResultsRef, {
+            testId: resultData.testId,
+            correctPoints: resultData.correctPoints,
+            totalQuestions: resultData.totalQuestions,
+            timestamp: resultData.timestamp,
+        });
+
+
+        // 3. Переходимо на сторінку результатів
         localStorage.setItem('b2_last_result_id', newResultRef.id);
         localStorage.setItem('b2_test_to_load', currentTest.test_id); // Зберігаємо ID тесту для `results.js`
         
@@ -523,6 +571,42 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.uploadJsonFile.addEventListener('change', handleJsonUpload);
         }
         
+        // Обробники для сортування
+        const sortByScoreBtn = document.getElementById('sort-by-score');
+        const sortByCompletionsBtn = document.getElementById('sort-by-completions');
+
+        const completionsSortIcon = document.getElementById('completions-sort-icon');
+        const scoreSortIcon = document.getElementById('score-sort-icon');
+
+        if (sortByScoreBtn) {
+            sortByScoreBtn.addEventListener('click', () => {
+                if (sortOrder.score === 'desc') {
+                    allTests.sort((a, b) => b.stats.avgScore - a.stats.avgScore);
+                    sortOrder.score = 'asc';
+                    if (scoreSortIcon) scoreSortIcon.textContent = '▲';
+                } else {
+                    allTests.sort((a, b) => a.stats.avgScore - b.stats.avgScore);
+                    sortOrder.score = 'desc';
+                    if (scoreSortIcon) scoreSortIcon.textContent = '▼';
+                }
+                renderAllTests();
+            });
+        }
+        if (sortByCompletionsBtn) {
+            sortByCompletionsBtn.addEventListener('click', () => {
+                if (sortOrder.completions === 'desc') {
+                    allTests.sort((a, b) => b.stats.completions - a.stats.completions);
+                    sortOrder.completions = 'asc';
+                    if (completionsSortIcon) completionsSortIcon.textContent = '▲';
+                } else {
+                    allTests.sort((a, b) => a.stats.completions - b.stats.completions);
+                    sortOrder.completions = 'desc';
+                    if (completionsSortIcon) completionsSortIcon.textContent = '▼';
+                }
+                renderAllTests();
+            });
+        }
+
     } else if (currentPath.includes('test-page.html')) {
         // Логіка для сторінки тесту
         const testId = localStorage.getItem('b2_test_to_load');
