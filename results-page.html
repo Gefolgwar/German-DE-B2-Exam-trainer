@@ -20,9 +20,8 @@
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import {
         getAuth,
-        signInAnonymously,
-        signInWithCustomToken,
         onAuthStateChanged,
+        signOut,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
       import {
         getFirestore,
@@ -83,18 +82,15 @@
 
           // Слухач зміни стану аутентифікації
           onAuthStateChanged(window.auth, async (user) => {
-            if (!user) {
-              // Якщо користувача немає, виконуємо анонімний вхід.
-              // onAuthStateChanged буде викликано знову з новим користувачем.
-              const anonymousUser = await signInAnonymously(window.auth);
-              return; // Виходимо, щоб уникнути подвійного виконання
+            if (user) {
+              window.userId = user.uid;
+              window.isAuthReady = true;
+              console.log("Firebase Auth Ready. User ID:", window.userId);
+              window.dispatchEvent(new CustomEvent("firestoreReady"));
+            } else {
+              // Користувач не увійшов, перенаправляємо на сторінку входу
+              window.location.href = "login.html";
             }
-            window.userId = user.uid;
-            window.isAuthReady = true;
-            console.log("Firebase Auth Ready. User ID:", window.userId);
-
-            // Створення глобальної події готовності, яку можуть слухати інші скрипти
-            window.dispatchEvent(new CustomEvent("firestoreReady"));
           });
         } catch (error) {
           console.error("Error initializing Firebase:", error);
@@ -102,14 +98,30 @@
       }
 
       initializeFirebase();
+
+      // Функція виходу
+      window.logout = async () => {
+        await signOut(getAuth());
+        // onAuthStateChanged автоматично перенаправить на login.html
+      };
     </script>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
       <div class="container mx-auto max-w-4xl">
-        <h1 class="text-2xl font-bold text-gray-800">
-          <a href="index.html" class="hover:text-blue-600">B2 Test Trainer</a>
-        </h1>
+        <div class="flex justify-between items-center">
+          <h1 class="text-2xl font-bold text-gray-800">
+            <a href="index.html" class="hover:text-blue-600">B2 Test Trainer</a>
+          </h1>
+          <nav>
+            <button
+              onclick="window.logout()"
+              class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm"
+            >
+              Вийти
+            </button>
+          </nav>
+        </div>
       </div>
     </header>
 

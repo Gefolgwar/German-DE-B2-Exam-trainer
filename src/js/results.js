@@ -34,6 +34,9 @@ function generateQuestionHtml({ q, originalIndex }) {
     const detailedResult = currentResultData.detailedResults.find(r => r.questionId === q.id);
     if (!detailedResult) return '';
 
+    // Знаходимо частину, до якої належить питання
+    const part = currentTestSnapshot.parts.find(p => p.questions.some(pq => pq.id === q.id));
+    const partTitle = part ? part.title : 'Невідома частина';
     const isCorrect = detailedResult.isCorrect;
     const userAnswerIndex = detailedResult.userAnswerIndex;
 
@@ -71,7 +74,7 @@ function generateQuestionHtml({ q, originalIndex }) {
         <div class="bg-white p-6 rounded-xl shadow-md border-l-4 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
             <div class="flex justify-between items-center mb-4">
                  <h4 class="text-xl font-bold text-gray-800">
-                    Запитання ${originalIndex + 1}
+                    Запитання ${originalIndex + 1} <span class="text-base font-normal text-gray-500">(${partTitle})</span>
                     <span class="text-sm font-normal ml-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}">
                         ${statusText}
                     </span>
@@ -142,16 +145,60 @@ async function loadResultData(resultId) {
 function renderSummary() {
     if (!currentResultData || !currentTestSnapshot) return;
 
-    const { correctPoints, totalQuestions, timeSpentSeconds, passingScore, detailedResults, testTitle } = currentResultData;
+    const { correctPoints, totalQuestions, timeSpentSeconds, passingScore, detailedResults, testTitle, timestamp, partTimes } = currentResultData;
     const percent = totalQuestions > 0 ? ((correctPoints / totalQuestions) * 100).toFixed(1) : 0;
     const incorrectCount = totalQuestions - correctPoints;
+    const overallStatus = correctPoints >= passingScore ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО';
+    const formattedDate = new Date(timestamp).toLocaleString('uk-UA');
     
-    elements.testSummaryTitle.textContent = testTitle;
-    elements.resultPoints.innerHTML = `${correctPoints}/${totalQuestions} <span class="text-xl text-gray-500">(Прохідний: ${passingScore})</span>`;
+    elements.testSummaryTitle.innerHTML = `${testTitle} <span class="block text-lg font-normal text-gray-500 mt-1">${formattedDate}</span>`;
+    elements.resultPoints.innerHTML = `${correctPoints}/${totalQuestions} <span class="text-xl text-gray-500">(Загальний прохідний: ${passingScore})</span> <span class="block text-2xl mt-2 ${overallStatus === 'ПРОЙДЕНО' ? 'text-green-600' : 'text-red-600'}">${overallStatus}</span>`;
     elements.resultPercent.textContent = `${percent}%`;
     elements.resultTime.textContent = formatTime(timeSpentSeconds);
     elements.resultIncorrect.textContent = incorrectCount;
     elements.resultIdDisplay.textContent = `ID Користувача: ${window.userId}`;
+
+    // Розрахунок та відображення статистики по частинах
+    const partsStats = {};
+    currentTestSnapshot.parts.forEach(part => {
+        partsStats[part.part_id] = {
+            title: part.title,
+            correct: 0,
+            total: part.questions.length,
+            duration_minutes: part.duration_minutes || 0,
+            passingScore: part.passing_score_points || 0,
+        };
+    });
+
+    detailedResults.forEach(res => {
+        // Знаходимо питання у знімку тесту
+        const question = currentTestSnapshot.parts.flatMap(p => p.questions).find(q => q.id === res.questionId);
+        // Знаходимо частину, до якої належить це питання
+        const part = currentTestSnapshot.parts.find(p => p.questions.some(q => q.id === res.questionId));
+        if (res.isCorrect && part) {
+            partsStats[part.part_id].correct++;
+        }
+    });
+
+    const summaryContainer = document.querySelector('.grid.grid-cols-3.gap-4.mb-10');
+    if (summaryContainer) {
+        summaryContainer.innerHTML = ''; // Очищуємо старий вигляд
+        Object.values(partsStats).forEach(stat => {
+            const partTimeSpent = partTimes && partTimes[stat.part_id] ? partTimes[stat.part_id].timeSpent / 1000 : 0;
+            // Розраховуємо відсоток та статус для кожної частини
+            const partPercent = stat.total > 0 ? (stat.correct / stat.total * 100).toFixed(1) : 0;
+            const partStatus = stat.correct >= stat.passingScore ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО';
+            summaryContainer.innerHTML += `
+                <div class="p-4 bg-white rounded-xl shadow-lg text-center border-l-4 ${partStatus === 'ПРОЙДЕНО' ? 'border-green-500' : 'border-red-500'}">
+                    <h4 class="font-bold text-gray-700">${stat.title}</h4>
+                    <p class="text-xs text-gray-500">Витрачено: ${formatTime(Math.round(partTimeSpent))} / Виділено: ${stat.duration_minutes} хв.</p>
+                    <p class="text-3xl font-bold my-2">${stat.correct} / ${stat.total}</p>
+                    <p class="text-lg font-semibold ${partStatus === 'ПРОЙДЕНО' ? 'text-green-600' : 'text-red-600'}">${partStatus} (${partPercent}%)</p>
+                    <p class="text-xs text-gray-500">Прохідний бал: ${stat.passingScore}</p>
+                </div>
+            `;
+        });
+    }
 
     // Створюємо плоский масив питань для звіту, використовуючи знімок тесту
     const flatQuestions = [];

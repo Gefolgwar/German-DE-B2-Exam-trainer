@@ -7,6 +7,7 @@ let currentQuestionIndex = 0; // Індекс питання, яке зараз 
 let flatQuestions = []; // Оптимізація: плоский масив питань
 let timerInterval = null;
 let timeLeftSeconds = 0;
+let partTimers = {}; // { partId: startTime }
 // const testDurationPlaceholder = 1500; // Це тепер береться з об'єкта тесту
 
 // --- DOM Елементи ---
@@ -305,6 +306,12 @@ function initializeTestState(test) {
     if (elements.testTitle) elements.testTitle.textContent = `${test.title} | B2 Test`;
     if (elements.currentTestTitle) elements.currentTestTitle.textContent = test.title;
 
+    // Ініціалізуємо таймери для частин
+    partTimers = {};
+    test.parts.forEach(part => {
+        partTimers[part.part_id] = { startTime: null, timeSpent: 0 };
+    });
+
     // Створюємо плоский масив питань
     flatQuestions = [];
     test.parts.forEach(part => {
@@ -353,6 +360,12 @@ function renderQuestion(index) {
 
     const question = flatQuestions[index];
     const totalQuestions = flatQuestions.length;
+
+    // Запускаємо таймер для нової частини, якщо ми на неї перейшли
+    const currentPartId = question.part_id;
+    if (partTimers[currentPartId] && partTimers[currentPartId].startTime === null) {
+        partTimers[currentPartId].startTime = Date.now();
+    }
     
     // --- Відображення стимулу (тексту для читання/слухання) ---
     if (elements.stimulusText) {
@@ -478,6 +491,16 @@ function formatTime(seconds) {
 async function finishTest(isTimedOut) {
     if (timerInterval) clearInterval(timerInterval);
     
+    // Зупиняємо всі таймери частин
+    const now = Date.now();
+    for (const partId in partTimers) {
+        const timer = partTimers[partId];
+        if (timer.startTime) {
+            timer.timeSpent += now - timer.startTime;
+            timer.startTime = null; // Зупиняємо
+        }
+    }
+
     const timeSpent = currentTest.duration_minutes * 60 - timeLeftSeconds;
     let correctCount = 0;
     
@@ -492,7 +515,8 @@ async function finishTest(isTimedOut) {
         return {
             questionId: q.id,
             userAnswerIndex: userAnswerIndex,
-            isCorrect: isCorrect
+            isCorrect: isCorrect,
+            partId: q.part_id // Додаємо ID частини до результату питання
         };
     });
 
@@ -505,6 +529,7 @@ async function finishTest(isTimedOut) {
         timeSpentSeconds: timeSpent,
         isTimedOut: isTimedOut,
         passingScore: currentTest.passing_score_points,
+        partTimes: partTimers, // Зберігаємо час по частинах
         // Зберігаємо детальні результати для перегляду
         detailedResults: detailedResults,
         // Зберігаємо сам тест, щоб мати можливість переглянути його пізніше (запобігає проблемам, якщо тест буде змінено)

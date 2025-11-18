@@ -147,13 +147,29 @@ function createPartCard(partIndex, partData = {}) {
     card.dataset.partId = partId;
     card.innerHTML = `
         <div class="flex justify-between items-center mb-4">
-            <h4 class="text-2xl font-bold text-gray-800">Частина Завдання ${partIndex}</h4>
+            <h4 class="text-2xl font-bold text-gray-800">Частина ${partIndex}</h4>
             <button type="button" onclick="window.removeElement(this.closest('.part-card'))" class="text-red-600 hover:text-red-800 font-bold transition">
                 ❌ Видалити Частину
             </button>
         </div>
 
         <input type="hidden" name="part_id" value="${partId}">
+
+        <div class="space-y-2">
+            <label class="block text-gray-700 font-semibold">Назва Частини (напр., Lesen Teil 1):</label>
+            <input type="text" name="part_title" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.title || ''}" required placeholder="Назва частини">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+                <label class="block text-gray-700 font-semibold">Тривалість частини (хв):</label>
+                <input type="number" name="part_duration_minutes" class="part-duration-input w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.duration_minutes || '10'}" min="1" required>
+            </div>
+            <div class="space-y-2">
+                <label class="block text-gray-700 font-semibold">Прохідний бал для частини:</label>
+                <input type="number" name="part_passing_score" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.passing_score_points || '1'}" min="0" required>
+            </div>
+        </div>
 
         <div class="space-y-4 mb-6">
             <div class="space-y-2">
@@ -214,13 +230,15 @@ function createPartCard(partIndex, partData = {}) {
  */
 function addPart(partData) {
     currentPartIndex++;
-    const card = createPartCard(currentPartIndex, partData || {});
+    const card = createPartCard(currentPartIndex, partData);
     elements.partsContainer.appendChild(card);
     
     // Якщо створюємо нову частину, додаємо в неї одне порожнє питання
-    if (!partData) {
+    if (!partData || !partData.questions || partData.questions.length === 0) {
         addQuestionToPart(card);
     }
+
+    updateTotalDuration();
 }
 
 /**
@@ -233,6 +251,20 @@ window.addQuestionToPart = function(partCard) {
     
     questionsList.insertAdjacentHTML('beforeend', createQuestionHtml(partId, currentQuestionCount + 1));
 };
+
+/**
+ * Оновлює загальну тривалість тесту на основі тривалостей частин.
+ */
+function updateTotalDuration() {
+    let totalMinutes = 0;
+    document.querySelectorAll('.part-duration-input').forEach(input => {
+        totalMinutes += parseInt(input.value, 10) || 0;
+    });
+    const totalDurationInput = document.getElementById('duration-minutes');
+    if (totalDurationInput) {
+        totalDurationInput.value = totalMinutes;
+    }
+}
 
 
 // =========================================================================
@@ -249,7 +281,7 @@ function serializeFormToTestObject(form) {
 
     const test = {
         test_id: form.dataset.testId || generateUniqueId(),
-        title: form.querySelector('#test-title').value.trim(),
+        title: form.querySelector('#test-title').value.trim() || "Без назви",
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10),
         passing_score_points: parseInt(form.querySelector('#passing-score').value, 10),
         questions_total: 0, // Буде оновлено пізніше
@@ -264,6 +296,9 @@ function serializeFormToTestObject(form) {
         const part = {
             part_id: partId,
             instruction: partCard.querySelector('textarea[name="instruction"]').value.trim(),
+            title: partCard.querySelector('input[name="part_title"]').value.trim(),
+            duration_minutes: parseInt(partCard.querySelector('input[name="part_duration_minutes"]').value, 10) || 0,
+            passing_score_points: parseInt(partCard.querySelector('input[name="part_passing_score"]').value, 10) || 0,
             media: {},
             questions: []
         };
@@ -433,6 +468,7 @@ async function loadTestForEditing(testId, retries = 3) {
             document.getElementById('test-title').value = testToEdit.title;
             document.getElementById('duration-minutes').value = testToEdit.duration_minutes;
             document.getElementById('passing-score').value = testToEdit.passing_score_points;
+            // Загальний прохідний бал тепер може бути декоративним або використовуватися для загального статусу
 
             elements.partsContainer.innerHTML = '';
             currentPartIndex = 0; // Скидаємо лічильник
@@ -443,6 +479,7 @@ async function loadTestForEditing(testId, retries = 3) {
                 const card = createPartCard(partIndex, partData);
                 elements.partsContainer.appendChild(card);
             });
+            updateTotalDuration();
 
             showMessage(`Тест "${testToEdit.title}" завантажено для редагування.`, 'success');
 
@@ -468,7 +505,16 @@ async function loadTestForEditing(testId, retries = 3) {
 // --- Ініціалізація ---
 document.addEventListener('DOMContentLoaded', () => {
     if (elements.addPartBtn) {
-        elements.addPartBtn.addEventListener('click', () => addPart()); 
+        elements.addPartBtn.addEventListener('click', () => addPart({})); 
+    }
+
+    // Слухач для автоматичного оновлення загальної тривалості
+    if (elements.partsContainer) {
+        elements.partsContainer.addEventListener('input', (e) => {
+            if (e.target && e.target.classList.contains('part-duration-input')) {
+                updateTotalDuration();
+            }
+        });
     }
     
     if (elements.form) {
