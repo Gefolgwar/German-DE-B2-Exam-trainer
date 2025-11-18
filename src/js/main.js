@@ -152,6 +152,12 @@ async function loadAvailableTests() {
 function renderAllTests() {
     if (!elements.testListContainer) return;
 
+    // Завжди показуємо адмін-контроль, якщо роль 'admin'
+    if (window.userRole === 'admin') {
+        document.getElementById('admin-controls')?.classList.remove('hidden');
+        document.getElementById('admin-panel-link')?.classList.remove('hidden');
+    }
+
     if (allTests.length === 0) {
         elements.testListContainer.innerHTML = `
             <div class="text-center p-8 bg-white rounded-xl shadow text-gray-500">
@@ -163,10 +169,6 @@ function renderAllTests() {
             return generateTestItemHtml(test, test.stats);
         }).join('');
         
-        if (window.userRole === 'admin') {
-            document.getElementById('admin-controls')?.classList.remove('hidden');
-            document.getElementById('admin-panel-link')?.classList.remove('hidden');
-        }
         attachTestActionListeners();
     }
 }
