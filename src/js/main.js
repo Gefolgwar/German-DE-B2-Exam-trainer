@@ -1,3 +1,5 @@
+import { collection, onSnapshot, doc, getDoc, addDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
 // Глобальний стан додатку (для test-page.html)
 let currentTest = null;
 let userAnswers = {}; // { questionId: selectedIndex }
@@ -5,7 +7,7 @@ let currentQuestionIndex = 0; // Індекс питання, яке зараз 
 let flatQuestions = []; // Оптимізація: плоский масив питань
 let timerInterval = null;
 let timeLeftSeconds = 0;
-const testDurationPlaceholder = 1500; 
+// const testDurationPlaceholder = 1500; // Це тепер береться з об'єкта тесту
 
 // --- DOM Елементи ---
 const elements = {
@@ -24,46 +26,405 @@ const elements = {
     // Елементи для index.html (завантажуються лише там)
     testListContainer: document.getElementById('test-list-container'),
     uploadJsonFile: document.getElementById('upload-json-file'),
-    createNewTestBtn: document.getElementById('create-new-test-btn'), // Додаємо кнопку створення
+    createNewTestBtn: document.getElementById('create-new-test-btn'), 
 };
 
 // =========================================================================
-// === ДОПОМІЖНІ ФУНКЦІЇ ===
+// === Firebase & Допоміжні функції для роботи з даними (замінюють localStorage) ===
+// =========================================================================
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+/**
+ * Генерує HTML-розмітку для одного тесту в списку.
+ * @param {object} test - Об'єкт тесту з Firestore.
+ */
+function generateTestItemHtml(test) {
+    const canEdit = test.userId === window.userId; // Визначаємо, чи може поточний користувач редагувати/видаляти
+
+    const actionButtons = `
+        <button 
+            class="btn-run bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
+            data-test-id="${test.test_id}"
+        >
+            ▶️ Запустити
+        </button>
+        <button 
+            class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
+            data-test-id="${test.test_id}"
+        >
+            ✏️ Редагувати
+        </button>
+        <button 
+            class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
+            data-test-id="${test.test_id}"
+        >
+            ⬇️ JSON
+        </button>
+        <button 
+            class="btn-delete bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
+            data-test-id="${test.test_id}"
+            data-test-title="${test.title}"
+        >
+            🗑️ Видалити
+        </button>
+    `;
+    
+    return `
+        <div class="test-card bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500 flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h4 class="text-xl font-semibold text-gray-800">${test.title}</h4>
+                <p class="text-sm text-gray-500 mt-1">
+                    Питань: ${test.questions_total} | Хв: ${test.duration_minutes} | Прохідний бал: ${test.passing_score_points}
+                </p>
+                <p class="text-xs text-gray-400 mt-1">ID: ${test.test_id}</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                ${actionButtons}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Завантажує список доступних тестів з Firestore.
+ */
+function loadAvailableTests() {
+    if (!window.db || !window.isAuthReady) {
+        // Якщо Firebase ще не готовий, чекаємо
+        console.warn("Firestore not ready yet. Waiting...");
+        setTimeout(loadAvailableTests, 200);
+        return;
+    }
+
+    const testCollectionRef = collection(window.db, `artifacts/${appId}/public/data/tests`);
+
+    // onSnapshot забезпечує оновлення в реальному часі
+    onSnapshot(testCollectionRef, (snapshot) => {
+        const tests = [];
+        snapshot.forEach(doc => {
+            const testData = doc.data();
+            // Додаємо ID документа як ID тесту
+            tests.push({ ...testData, test_id: doc.id }); 
+        });
+
+        if (elements.testListContainer) {
+            if (tests.length === 0) {
+                elements.testListContainer.innerHTML = `
+                    <div class="text-center p-8 bg-white rounded-xl shadow text-gray-500">
+                        Тестів не знайдено. Будь ласка, створіть новий тест, натиснувши "➕ Створити Свій Тест".
+                    </div>
+                `;
+            } else {
+                elements.testListContainer.innerHTML = tests
+                    .map(generateTestItemHtml)
+                    .join('');
+                attachTestActionListeners(); // Прикріплюємо слухачів після рендерингу
+            }
+        }
+    }, (error) => {
+        console.error("Error fetching tests from Firestore:", error);
+        if (elements.testListContainer) {
+            elements.testListContainer.innerHTML = `
+                <div class="text-center p-8 bg-red-100 text-red-700 rounded-xl shadow">
+                    Помилка завантаження тестів: ${error.message}
+                </div>
+            `;
+        }
+    });
+}
+
+/**
+ * Прикріплює обробники подій до кнопок керування тестами.
+ */
+function attachTestActionListeners() {
+    document.querySelectorAll('.btn-run').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const testId = e.currentTarget.dataset.testId;
+            startTest(testId);
+        });
+    });
+
+    document.querySelectorAll('.btn-edit').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const testId = e.currentTarget.dataset.testId;
+            window.location.href = `upload-test.html?edit=${testId}`;
+        });
+    });
+    
+    document.querySelectorAll('.btn-download').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const testId = e.currentTarget.dataset.testId;
+            downloadTestFromFirestore(testId);
+        });
+    });
+
+    document.querySelectorAll('.btn-delete').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const testId = e.currentTarget.dataset.testId;
+            const testTitle = e.currentTarget.dataset.testTitle;
+            if (confirm(`Ви впевнені, що хочете видалити тест "${testTitle}"?`)) {
+                deleteTestFromFirestore(testId);
+            }
+        });
+    });
+}
+
+/**
+ * Завантажує тест з Firestore і ініціює скачування JSON-файлу.
+ * @param {string} testId 
+ */
+async function downloadTestFromFirestore(testId) {
+    const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const testData = docSnap.data();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(testData, null, 4));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            const fileName = `${testData.title.toLowerCase().replace(/\s+/g, '-')}-test.json`; 
+            downloadAnchorNode.setAttribute("download", fileName);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        } else {
+            alert('Помилка: Тест для завантаження не знайдено.');
+        }
+    } catch (error) {
+        console.error("Error downloading test for JSON export:", error);
+        alert(`Помилка завантаження тесту: ${error.message}`);
+    }
+}
+
+/**
+ * Видаляє тест з Firestore.
+ */
+async function deleteTestFromFirestore(testId) {
+    await deleteDoc(doc(window.db, `artifacts/${appId}/public/data/tests`, testId));
+    // onSnapshot автоматично оновить список
+}
+
+/**
+ * Запускає тест, зберігаючи його ID для test-page.html.
+ * @param {string} testId - ID тесту, який потрібно завантажити.
+ */
+window.startTest = function(testId) {
+    localStorage.setItem('b2_test_to_load', testId);
+    window.location.href = 'test-page.html';
+}
+
+// =========================================================================
+// === Логіка Сторінки Тесту (test-page.html) ===
 // =========================================================================
 
 /**
- * Ініціює завантаження JSON-файлу (створює файл у браузері).
+ * Завантажує тест з Firestore за ID.
+ * @param {string} testId 
  */
-function downloadTestFile(testData) {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(testData, null, 4));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    const fileName = `${testData.title.toLowerCase().replace(/\s+/g, '-')}-test.json`; 
-    downloadAnchorNode.setAttribute("download", fileName);
+async function loadTest(testId) {
+    if (!window.db) {
+         console.warn("Firestore not ready. Retrying loadTest...");
+         setTimeout(() => loadTest(testId), 200);
+         return;
+    }
+
+    const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
+
+    try {
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            const testData = docSnap.data();
+            currentTest = { ...testData, test_id: docSnap.id };
+            
+            // Ініціалізація
+            initializeTestState(currentTest);
+            renderQuestion(currentQuestionIndex);
+            startTimer();
+        } else {
+            console.error("Test document not found:", testId);
+            if (elements.questionsContainer) {
+                elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка: Тест з ID ${testId} не знайдено.</div>`;
+            }
+        }
+    } catch (error) {
+        console.error("Error loading test from Firestore:", error);
+        if (elements.questionsContainer) {
+            elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження тесту: ${error.message}</div>`;
+        }
+    }
+}
+
+
+/**
+ * Ініціалізує стан тесту: плоский список питань, заголовок, тривалість.
+ */
+function initializeTestState(test) {
+    // Встановлюємо заголовки
+    if (elements.testTitle) elements.testTitle.textContent = `${test.title} | B2 Test`;
+    if (elements.currentTestTitle) elements.currentTestTitle.textContent = test.title;
+
+    // Створюємо плоский масив питань
+    flatQuestions = [];
+    test.parts.forEach(part => {
+        part.questions.forEach(q => {
+            flatQuestions.push({
+                ...q,
+                part_id: part.part_id, // Додаємо ID частини для контексту
+                instruction: part.instruction, // Додаємо інструкцію для контексту
+                media: part.media || {}, // Зберігаємо весь об'єкт media
+            });
+        });
+    });
     
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    // Ініціалізуємо відповіді
+    userAnswers = flatQuestions.reduce((acc, q) => {
+        acc[q.id] = null; // null - відповідь не дана
+        return acc;
+    }, {});
+
+    // Встановлюємо тривалість
+    timeLeftSeconds = test.duration_minutes * 60;
+}
+
+
+// Функція для переходу до наступного питання
+function nextQuestion() {
+    if (currentQuestionIndex < flatQuestions.length - 1) {
+        currentQuestionIndex++;
+        renderQuestion(currentQuestionIndex);
+    }
+}
+
+// Функція для переходу до попереднього питання
+function prevQuestion() {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderQuestion(currentQuestionIndex);
+    }
 }
 
 /**
- * Завантажує список тестів з localStorage.
+ * Генерує HTML для поточного питання
  */
-function getCustomTests() {
-    const testsJson = localStorage.getItem('b2_custom_tests');
-    return testsJson ? JSON.parse(testsJson) : [];
+function renderQuestion(index) {
+    if (!flatQuestions[index]) return;
+
+    const question = flatQuestions[index];
+    const totalQuestions = flatQuestions.length;
+    
+    // --- Відображення стимулу (тексту для читання/слухання) ---
+    if (elements.stimulusText) {
+        let mediaHtml = '';
+
+        // Рендеримо аудіо
+        if (question.media.audios && question.media.audios.length > 0) {
+            mediaHtml += question.media.audios.map(audio => `
+                <div class="my-4">
+                    <audio controls class="w-full">
+                        <source src="${audio.url}" type="audio/mpeg">
+                        Ваш браузер не підтримує аудіо елемент.
+                    </audio>
+                </div>
+            `).join('');
+        }
+
+        // Рендеримо зображення
+        if (question.media.images && question.media.images.length > 0) {
+            mediaHtml += question.media.images.map(image => `
+                <div class="my-4">
+                    <img src="${image.url}" alt="Зображення до завдання" class="max-w-full h-auto rounded-lg shadow-md mx-auto">
+                </div>
+            `).join('');
+        }
+
+        elements.stimulusText.innerHTML = `
+            <div class="text-sm font-semibold text-gray-600 mb-2">Інструкція до частини (${question.part_id}):</div>
+            <p class="mb-4 text-blue-800 italic">${question.instruction}</p>
+            ${mediaHtml}
+            ${(question.media.texts || []).map(text => `<div class="border-l-4 border-gray-200 pl-4 bg-gray-50 p-3 rounded-lg text-gray-700 whitespace-pre-wrap mt-4">${text.content}</div>`).join('')}
+        `;
+    }
+
+    // --- Відображення питання ---
+    const currentAnswer = userAnswers[question.id];
+    let questionHtml = `
+        <div id="q-${question.id}" class="bg-white p-6 rounded-xl shadow-lg transition duration-200">
+            <p class="text-lg font-bold text-gray-800 mb-4">
+                Запитання ${index + 1} з ${totalQuestions}:
+                <span class="font-normal text-blue-600">${question.text}</span>
+            </p>
+            <div class="space-y-3">
+    `;
+
+    question.options.forEach((option, optionIndex) => {
+        const isSelected = currentAnswer === optionIndex;
+        const optionId = `q-${question.id}-o-${optionIndex}`;
+        
+        questionHtml += `
+            <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition duration-150 ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:bg-gray-50'}"
+                 onclick="handleAnswer('${question.id}', ${optionIndex})">
+                <input type="radio" id="${optionId}" name="q-${question.id}" value="${optionIndex}" class="hidden" ${isSelected ? 'checked' : ''}>
+                <label for="${optionId}" class="ml-3 text-gray-700 flex-grow cursor-pointer">
+                    <span class="font-semibold text-blue-800 mr-2">${String.fromCharCode(65 + optionIndex)}.</span> 
+                    ${option}
+                </label>
+            </div>
+        `;
+    });
+    
+    questionHtml += `
+            </div>
+        </div>
+    `;
+
+    if (elements.questionsContainer) {
+        elements.questionsContainer.innerHTML = questionHtml;
+    }
+    
+    // --- Оновлення навігації та прогресу ---
+    if (elements.prevBtn) elements.prevBtn.disabled = index === 0;
+    if (elements.nextBtn) elements.nextBtn.disabled = index === totalQuestions - 1;
+    if (elements.finishBtn) elements.finishBtn.textContent = index === totalQuestions - 1 ? 'Завершити Тест' : 'Перейти до завершення';
+    
+    updateProgressBar(index, totalQuestions);
 }
 
-/**
- * Зберігає оновлений список тестів у localStorage.
- */
-function saveCustomTests(tests) {
-    localStorage.setItem('b2_custom_tests', JSON.stringify(tests));
-    renderTestList(); 
+// Обробник відповіді на питання
+window.handleAnswer = function(questionId, selectedIndex) {
+    userAnswers[questionId] = selectedIndex;
+    renderQuestion(currentQuestionIndex); // Перемальовуємо, щоб оновити вибір
 }
 
-// --- Функції Управління Часом (ДЛЯ test-page.html) ---
+// Оновлення індикатора прогресу
+function updateProgressBar(currentIndex, total) {
+    const progressPercent = total > 0 ? (currentIndex + 1) / total * 100 : 0;
+    const progressBar = elements.progressIndicator.querySelector('div');
+    if (progressBar) {
+        progressBar.style.width = `${progressPercent}%`;
+    }
+}
 
+// Запуск та оновлення таймера
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+        timeLeftSeconds--;
+        if (elements.timerDisplay) {
+            elements.timerDisplay.textContent = formatTime(timeLeftSeconds);
+        }
+
+        if (timeLeftSeconds <= 0) {
+            clearInterval(timerInterval);
+            finishTest(true); // Автоматичне завершення
+        }
+    }, 1000);
+}
+
+// Функція форматування часу
 function formatTime(seconds) {
     if (seconds < 0) seconds = 0;
     const minutes = Math.floor(seconds / 60);
@@ -71,513 +432,107 @@ function formatTime(seconds) {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-function startTimer() {
+/**
+ * Обчислює результати та зберігає їх у Firestore.
+ * @param {boolean} isTimedOut - Чи було завершення через тайм-аут.
+ */
+async function finishTest(isTimedOut) {
     if (timerInterval) clearInterval(timerInterval);
     
-    // Встановлюємо початковий час
-    timeLeftSeconds = currentTest.duration_minutes * 60;
-    if (elements.timerDisplay) elements.timerDisplay.textContent = formatTime(timeLeftSeconds);
-
-    const startTime = Date.now();
-    const durationMs = timeLeftSeconds * 1000;
-
-    timerInterval = setInterval(() => {
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = durationMs - elapsedTime;
-        timeLeftSeconds = Math.max(0, Math.floor(remainingTime / 1000));
+    const timeSpent = currentTest.duration_minutes * 60 - timeLeftSeconds;
+    let correctCount = 0;
+    
+    const detailedResults = flatQuestions.map(q => {
+        const userAnswerIndex = userAnswers[q.id];
+        const isCorrect = userAnswerIndex === q.correct_answer_index;
         
-        if (elements.timerDisplay) {
-            elements.timerDisplay.textContent = formatTime(timeLeftSeconds);
-            
-            // Візуальна індикація низького часу
-            if (timeLeftSeconds <= 60 && elements.timerDisplay.classList.contains('text-gray-800')) {
-                 elements.timerDisplay.classList.remove('text-gray-800', 'text-blue-600');
-                 elements.timerDisplay.classList.add('text-red-600');
-            }
+        if (isCorrect) {
+            correctCount++;
         }
-
-        if (timeLeftSeconds <= 0) {
-            clearInterval(timerInterval);
-            alert('Час вийшов! Тест буде завершено.');
-            finishTest(true); 
-        }
-    }, 1000);
-}
-
-// =========================================================================
-// === ФУНКЦІОНАЛ ДЛЯ index.html (УПРАВЛІННЯ ТЕСТАМИ) ===
-// =========================================================================
-
-/**
- * Генерує HTML-картку для одного тесту.
- */
-function createTestCardHtml(test) {
-    // Фікс помилки з reduce (додана перевірка test.parts || [])
-    const totalQuestions = test.questions_total || 
-        (test.parts || []).reduce((sum, part) => sum + (part.questions ? part.questions.length : 0), 0);
-
-    return `
-        <div class="test-card bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500 flex justify-between items-center flex-wrap gap-4">
-            <div>
-                <h4 class="text-xl font-bold text-gray-800">${test.title}</h4>
-                <p class="text-sm text-gray-500 mt-1">
-                    Питань: ${totalQuestions} | Хв: ${test.duration_minutes} | Прохідний бал: ${test.passing_score_points}
-                </p>
-                <p class="text-xs text-gray-400 mt-1">ID: ${test.test_id}</p>
-            </div>
-            
-            <div class="flex flex-wrap gap-2">
-                <button 
-                    class="btn-run bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-                    data-test-id="${test.test_id}"
-                >
-                    ▶️ Запустити
-                </button>
-                <button 
-                    class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-                    data-test-id="${test.test_id}"
-                >
-                    ✏️ Редагувати
-                </button>
-                <button 
-                    class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-                    data-test-id="${test.test_id}"
-                >
-                    ⬇️ JSON
-                </button>
-                <button 
-                    class="btn-delete bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-                    data-test-id="${test.test_id}"
-                    data-test-title="${test.title}"
-                >
-                    🗑️ Видалити
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Відображає список тестів на головній сторінці.
- */
-function renderTestList() {
-    if (!elements.testListContainer) return;
-
-    const tests = getCustomTests();
-    
-    if (tests.length === 0) {
-        elements.testListContainer.innerHTML = `
-            <div class="text-center p-8 bg-white rounded-xl shadow text-gray-600">
-                <p class="text-lg font-semibold mb-2">У вас ще немає створених тестів.</p>
-                <p>Скористайтеся кнопкою '➕ Створити Новий Тест' або '⬆️ Завантажити JSON'.</p>
-            </div>
-        `;
-        return;
-    }
-
-    const html = tests.map(createTestCardHtml).join('');
-    elements.testListContainer.innerHTML = html;
-
-    attachTestActionListeners();
-}
-
-
-/**
- * Прикріплює обробники подій до кнопок.
- */
-function attachTestActionListeners() {
-    // 1. Запуск тесту
-    document.querySelectorAll('.btn-run').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const testId = e.currentTarget.dataset.testId;
-            localStorage.setItem('b2_test_to_load', testId);
-            window.location.href = 'test-page.html';
-        });
+        
+        return {
+            questionId: q.id,
+            userAnswerIndex: userAnswerIndex,
+            isCorrect: isCorrect
+        };
     });
 
-    // 2. Редагування тесту
-    document.querySelectorAll('.btn-edit').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const testId = e.currentTarget.dataset.testId;
-            localStorage.setItem('b2_test_to_edit', testId);
-            window.location.href = 'upload-test.html';
-        });
-    });
-    
-    // 3. Завантаження JSON (ЕКСПОРТ)
-    document.querySelectorAll('.btn-download').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const testId = e.currentTarget.dataset.testId;
-            const tests = getCustomTests();
-            const testToDownload = tests.find(t => t.test_id === testId);
-            
-            if (testToDownload) {
-                downloadTestFile(testToDownload);
-                alert(`Файл "${testToDownload.title}" завантажується.`);
-            } else {
-                alert('Помилка: Тест для завантаження не знайдено.');
-            }
-        });
-    });
-
-    // 4. Видалення тесту
-    document.querySelectorAll('.btn-delete').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const testId = e.currentTarget.dataset.testId;
-            const testTitle = e.currentTarget.dataset.testTitle;
-            if (confirm(`Ви впевнені, що хочете видалити тест "${testTitle}"?`)) {
-                deleteTest(testId);
-            }
-        });
-    });
-}
-
-/**
- * Видаляє тест із localStorage.
- */
-function deleteTest(testId) {
-    let tests = getCustomTests();
-    const initialLength = tests.length;
-    
-    tests = tests.filter(test => test.test_id !== testId);
-
-    if (tests.length < initialLength) {
-        saveCustomTests(tests);
-        alert('Тест успішно видалено!');
-    } else {
-        alert('Помилка: Тест не знайдено.');
-    }
-}
-
-
-// =========================================================================
-// === МЕХАНІЗМ ЗАВАНТАЖЕННЯ JSON-ФАЙЛІВ У LOCALSTORAGE ===
-// =========================================================================
-
-function handleJsonUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-        alert('Будь ласка, завантажте файл у форматі JSON.');
-        event.target.value = ''; 
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const testData = JSON.parse(e.target.result);
-            
-            if (!testData.test_id || !testData.title || !testData.parts) {
-                 throw new Error("Неправильна структура файлу JSON.");
-            }
-            
-            let tests = getCustomTests();
-            const existingIndex = tests.findIndex(t => t.test_id === testData.test_id);
-            
-            if (existingIndex !== -1) {
-                if (!confirm(`Тест "${testData.title}" з ID ${testData.test_id} вже існує. Замінити його?`)) {
-                    event.target.value = ''; 
-                    return;
-                }
-                tests[existingIndex] = testData; 
-            } else {
-                tests.unshift(testData); 
-            }
-
-            saveCustomTests(tests);
-            alert(`Тест "${testData.title}" успішно завантажено та збережено!`);
-            
-        } catch (error) {
-            console.error("Помилка обробки JSON:", error);
-            alert(`Помилка завантаження файлу: ${error.message || 'Некоректний формат JSON.'}`);
-        }
-        event.target.value = ''; 
-    };
-
-    reader.readAsText(file);
-}
-
-// =========================================================================
-// === ФУНКЦІОНАЛ ДЛЯ test-page.html (ЗАПУСК ТЕСТУ) ===
-// =========================================================================
-
-/**
- * Оновлює індикацію прогресу та навігаційні кнопки.
- */
-function updateProgress() {
-    if (!currentTest) return;
-
-    const totalQuestions = currentTest.questions_total;
-    const currentNumber = currentQuestionIndex + 1;
-    
-    // Оновлення індикатора прогресу
-    if (elements.progressIndicator) {
-        elements.progressIndicator.textContent = `${currentNumber}/${totalQuestions}`;
-    }
-
-    // Оновлення кнопок навігації
-    if (elements.prevBtn) {
-        elements.prevBtn.disabled = currentQuestionIndex === 0;
-    }
-    if (elements.nextBtn) {
-        elements.nextBtn.disabled = currentQuestionIndex >= totalQuestions - 1;
-    }
-
-    // Маркуємо питання, на яке вже дана відповідь
-    if (elements.questionsContainer) {
-        const questionElement = elements.questionsContainer.querySelector('.question-card');
-        if (questionElement) {
-            questionElement.classList.toggle('border-l-green-500', userAnswers[currentQuestionIndex] !== undefined);
-            questionElement.classList.toggle('border-l-blue-500', userAnswers[currentQuestionIndex] === undefined);
-        }
-    }
-}
-
-/**
- * Генерує HTML для відображення медіа (аудіо/зображення/текст)
- */
-function getMediaHtml(media) {
-    if (!media) return '';
-    let html = '';
-
-    // Відображення аудіо
-    if (media.audio && media.audio.length > 0) {
-        html += media.audio.map(a => `<audio controls class="w-full my-3"><source src="${a.url}" type="audio/mp3">Ваш браузер не підтримує аудіо елемент.</audio>`).join('');
-    }
-    
-    // Відображення зображень (якщо це частина Reading/Listening)
-    if (media.images && media.images.length > 0) {
-         html += media.images.map(img => `<img src="${img.url}" alt="Зображення для частини тесту" class="w-full h-auto rounded-lg my-3 object-cover">`).join('');
-    }
-
-    // Відображення тексту
-    if (media.texts && media.texts.length > 0) {
-        html += media.texts.map(t => `<div class="p-4 bg-gray-100 rounded-lg text-sm whitespace-pre-wrap">${t.content}</div>`).join('');
-    }
-
-    return html;
-}
-
-
-/**
- * Знаходить питання по глобальному індексу.
- */
-function getQuestionByGlobalIndex(index) { 
-    if (index >= 0 && index < flatQuestions.length) {
-        return flatQuestions[index];
-    }
-    return null; 
-} 
-
-/**
- * Відображає поточне питання на сторінці.
- */
-function renderQuestion() {
-    if (!currentTest || !elements.questionsContainer) return;
-
-    const flatQuestionData = getQuestionByGlobalIndex(currentQuestionIndex);
-    if (!flatQuestionData) {
-        elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка: Не знайдено даних для питання ${currentQuestionIndex + 1}.</div>`;
-        return;
-    }
-    
-    const { question, part } = flatQuestionData;
-    const qId = currentQuestionIndex;
-
-
-    // 2. Генеруємо питання та варіанти
-    let optionsHtml = question.options.map((optionText, index) => {
-        const isSelected = userAnswers[qId] === index;
-        return `
-            <div class="option-item flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition duration-150 
-                 ${isSelected ? 'bg-blue-100 border-blue-500' : 'bg-white hover:bg-gray-50'}"
-                 data-option-index="${index}" data-q-id="${qId}" onclick="selectAnswer(${qId}, ${index}, this)">
-                <input type="radio" name="answer-${qId}" id="q${qId}-opt${index}" value="${index}" class="form-radio h-5 w-5 text-blue-600 pointer-events-none" ${isSelected ? 'checked' : ''}>
-                <label for="q${qId}-opt${index}" class="text-gray-800 flex-grow">${String.fromCharCode(65 + index)}. ${optionText}</label>
-            </div>
-        `;
-    }).join('');
-
-    // Додатковий стимул (якщо є)
-    const questionStimulus = question.stimulus ? `<p class="p-3 bg-yellow-50 rounded-lg mb-4 text-gray-700 font-medium">${question.stimulus}</p>` : '';
-
-    const questionHtml = `
-        <div class="question-card bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 transition duration-300">
-            <h3 class="text-xl font-bold mb-4 text-gray-800">Питання ${qId + 1} / ${currentTest.questions_total}</h3>
-            ${questionStimulus}
-            <p class="text-gray-800 mb-6 font-medium">${question.text}</p>
-            
-            <div class="options-container space-y-3">
-                ${optionsHtml}
-            </div>
-        </div>
-    `;
-
-    // 1. Оновлення заголовків/інструкцій та медіа
-    const partMediaHtml = getMediaHtml(part.media);
-    const instructionHtml = `<p class="text-lg font-semibold text-gray-700">${part.instruction}</p>`;
-
-    // Збираємо весь контент частини в правильному порядку
-    if (elements.stimulusContainer) {
-        elements.stimulusContainer.innerHTML = instructionHtml + partMediaHtml;
-    }
-    if (elements.questionsContainer) {
-        elements.questionsContainer.innerHTML = questionHtml;
-    }
-    if (elements.currentTestTitle) {
-        elements.currentTestTitle.textContent = currentTest.title;
-    }
-
-    updateProgress();
-}
-
-/**
- * Зберігає вибрану відповідь користувача.
- */
-window.selectAnswer = function(qId, selectedIndex, element) {
-    userAnswers[qId] = selectedIndex;
-
-    // Оновлення UI
-    element.closest('.options-container').querySelectorAll('.option-item').forEach(item => {
-        item.classList.remove('bg-blue-100', 'border-blue-500');
-        item.classList.add('bg-white', 'hover:bg-gray-50');
-        item.querySelector('input[type="radio"]').checked = false;
-    });
-
-    element.classList.add('bg-blue-100', 'border-blue-500');
-    element.querySelector('input[type="radio"]').checked = true;
-
-    updateProgress();
-}
-
-/**
- * Перехід до наступного питання.
- */
-function nextQuestion() {
-    if (currentQuestionIndex < currentTest.questions_total - 1) {
-        currentQuestionIndex++;
-        renderQuestion();
-        window.scrollTo(0, 0); // Прокручуємо до верху сторінки
-    }
-}
-
-/**
- * Перехід до попереднього питання.
- */
-function prevQuestion() {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        renderQuestion();
-        window.scrollTo(0, 0);
-    }
-}
-
-/**
- * Обробник, що спрацьовує перед закриттям/оновленням сторінки тесту.
- * @param {Event} event - Подія beforeunload.
- */
-function handleBeforeUnload(event) {
-    // Стандартний спосіб для виклику діалогового вікна підтвердження.
-    event.preventDefault();
-    // Для сумісності зі старими браузерами.
-    event.returnValue = '';
-    return 'Ви впевнені, що хочете покинути сторінку? Весь прогрес тесту буде втрачено. Для навігації по тесту використовуйте кнопки "Наступне" та "Попереднє".';
-}
-
-/**
- * Завершує тест та перенаправляє на сторінку результатів.
- */
-function finishTest(forceFinish = false) {
-    if (!currentTest || (!forceFinish && !confirm('Ви впевнені, що хочете завершити тест?'))) {
-        return;
-    }
-    // Видаляємо слухача, щоб уникнути попередження при штатному завершенні.
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-
-    if (timerInterval) clearInterval(timerInterval);
-    
-    // Зберігаємо результати у localStorage для results-page.html
-    const results = {
+    const resultData = {
         testId: currentTest.test_id,
-        title: currentTest.title,
+        testTitle: currentTest.title,
+        timestamp: new Date().toISOString(),
+        correctPoints: correctCount,
+        totalQuestions: flatQuestions.length,
+        timeSpentSeconds: timeSpent,
+        isTimedOut: isTimedOut,
         passingScore: currentTest.passing_score_points,
-        timeSpent: (currentTest.duration_minutes * 60) - timeLeftSeconds,
-        userAnswers: userAnswers,
-        testData: currentTest
+        // Зберігаємо детальні результати для перегляду
+        detailedResults: detailedResults,
+        // Зберігаємо сам тест, щоб мати можливість переглянути його пізніше (запобігає проблемам, якщо тест буде змінено)
+        testSnapshot: currentTest 
     };
 
-    localStorage.setItem('b2_test_results', JSON.stringify(results));
-    // Використовуємо replace(), щоб сторінка test-page.html не залишалася в історії.
-    window.location.replace('results-page.html');
-}
+    try {
+        if (!window.db || !window.userId) throw new Error("Firebase або User ID недоступні.");
 
+        const resultsCollectionRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
+        const newResultRef = await addDoc(resultsCollectionRef, resultData);
 
-/**
- * Головна функція для завантаження та ініціалізації тесту.
- */
-function loadTest(testId) {
-    const tests = getCustomTests();
-    const testToLoad = tests.find(t => t.test_id === testId);
-
-    if (testToLoad) {
-        currentTest = testToLoad;
-        currentQuestionIndex = 0;
-        userAnswers = {}; // Скидаємо відповіді
-
-        // Оптимізація: створюємо плоский список питань для швидкого доступу
-        flatQuestions = [];
-        currentTest.parts.forEach(part => {
-            if (part.questions) {
-                part.questions.forEach(question => {
-                    flatQuestions.push({ question, part });
-                });
-            }
-        });
+        // Зберігаємо ID результату та ID тесту, щоб сторінка результатів могла їх завантажити
+        localStorage.setItem('b2_last_result_id', newResultRef.id);
+        localStorage.setItem('b2_test_to_load', currentTest.test_id); // Зберігаємо ID тесту для `results.js`
         
-        // Встановлюємо заголовок сторінки
-        if (elements.testTitle) elements.testTitle.textContent = `B2 Test: ${testToLoad.title}`;
-        
-        // Ініціалізуємо відображення
-        renderQuestion();
-        startTimer();
+        window.location.href = 'results-page.html';
 
-    } else {
-        // Якщо тест не знайдено
-        if (elements.questionsContainer) {
-            elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка: Тест з ID ${testId} не знайдено у сховищі. Поверніться на головну сторінку.</div>`;
-        }
+    } catch (error) {
+        console.error("Помилка збереження результатів у Firestore:", error);
+        alert(`Помилка збереження результатів. Вони не будуть збережені: ${error.message}`);
+        // Все одно переходимо на сторінку результатів, використовуючи локальне сховище
+        localStorage.setItem('b2_last_result_data', JSON.stringify(resultData));
+        window.location.href = 'results-page.html';
     }
 }
 
 
-// --- Головна Функція Ініціалізації (Entry Point) ---
+// =========================================================================
+// === Ініціалізація та Головний Обробник ===
+// =========================================================================
 
-function init() {
+document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname;
-    
+
     if (currentPath.includes('index.html') || currentPath === '/') {
         // Логіка для головної сторінки
-        renderTestList();
-        if(elements.uploadJsonFile) {
-            elements.uploadJsonFile.addEventListener('change', handleJsonUpload);
+        
+        // Чекаємо готовності Firebase
+        if (window.isAuthReady) {
+            loadAvailableTests();
+        } else {
+            window.addEventListener('firestoreReady', loadAvailableTests);
         }
 
-        // Очищуємо localStorage перед створенням нового тесту
+        // Обробник для кнопки "Створити Свій Тест" (не видаляємо localStorage, оскільки використовуємо URL-параметри для редагування)
         if (elements.createNewTestBtn) {
             elements.createNewTestBtn.addEventListener('click', (e) => {
-                e.preventDefault(); // Зупиняємо стандартний перехід за посиланням
-                localStorage.removeItem('b2_test_to_edit');
-                window.location.href = e.currentTarget.href; // Переходимо на сторінку створення
+                 // Тут можна додати логіку для очищення, але простіше покладатися на відсутність edit=ID в URL
             });
+        }
+        
+        // Залишаємо можливість завантаження JSON як запасний варіант
+        if (elements.uploadJsonFile) {
+            elements.uploadJsonFile.addEventListener('change', handleJsonUpload);
         }
         
     } else if (currentPath.includes('test-page.html')) {
         // Логіка для сторінки тесту
         const testId = localStorage.getItem('b2_test_to_load');
+        
         if (testId) {
-            loadTest(testId);
+            if (window.isAuthReady) {
+                loadTest(testId);
+            } else {
+                window.addEventListener('firestoreReady', () => loadTest(testId));
+            }
         } else {
             if (elements.questionsContainer) {
                  elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Не знайдено тест для запуску. Поверніться на головну сторінку.</div>`;
@@ -590,8 +545,62 @@ function init() {
         if (elements.finishBtn) elements.finishBtn.addEventListener('click', () => finishTest(false));
 
         // Додаємо попередження при спробі покинути сторінку
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('beforeunload', (e) => {
+            if (currentTest && !currentTest.isFinished) {
+                e.preventDefault();
+                e.returnValue = ''; // Для сумісності з різними браузерами
+                return '';
+            }
+        });
     }
+});
+
+
+// =========================================================================
+// === Запасна Логіка Завантаження JSON (якщо Firebase недоступний або потрібен імпорт) ===
+// =========================================================================
+
+async function handleJsonUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const json = JSON.parse(e.target.result);
+            if (!json.test_id || !json.title) {
+                alertBox('error', 'Недійсний формат JSON: відсутні test_id або title.');
+                return;
+            }
+
+            if (!window.db || !window.userId) {
+                alertBox('error', 'Firebase не готовий. Неможливо зберегти тест.');
+                return;
+            }
+
+            // Додаємо userId до тесту
+            const testToSave = { ...json, userId: window.userId };
+
+            // Зберігаємо тест у Firestore
+            const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testToSave.test_id);
+            await setDoc(docRef, testToSave);
+
+            alertBox('success', `Тест "${testToSave.title}" успішно завантажено у Firebase!`);
+            // Список оновиться автоматично завдяки onSnapshot
+
+        } catch (error) {
+            alertBox('error', 'Помилка розбору JSON файлу.');
+        }
+    };
+    reader.readAsText(file);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+function alertBox(type, message) {
+    // Дуже проста реалізація alert, оскільки window.alert заборонений
+    const tempDiv = document.createElement('div');
+    tempDiv.className = `fixed top-0 left-1/2 transform -translate-x-1/2 mt-4 p-4 rounded-lg shadow-xl z-50 
+                         ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
+    tempDiv.textContent = message;
+    document.body.appendChild(tempDiv);
+    setTimeout(() => tempDiv.remove(), 5000);
+}

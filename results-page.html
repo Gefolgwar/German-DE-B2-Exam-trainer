@@ -11,6 +11,98 @@
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       }
     </style>
+
+    <!-- Конфігурація Firebase для локальної розробки -->
+    <script src="src/js/firebase-config.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+      import {
+        getFirestore,
+        collection,
+        onSnapshot,
+        query,
+        limit,
+        orderBy,
+        enableIndexedDbPersistence,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+      // Глобальні змінні, доступні для results.js
+      window.db = null;
+      window.userId = null;
+      window.isAuthReady = false;
+
+      const appId =
+        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+      const firebaseConfig =
+        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
+        window.firebaseConfig ||
+        (typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {});
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      // Ініціалізація та Аутентифікація
+      async function initializeFirebase() {
+        try {
+          if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            console.error(
+              "Firebase config is missing. Using local storage fallback."
+            );
+            return; // Вихід, якщо конфігурації немає
+          }
+
+          const app = initializeApp(firebaseConfig);
+          window.db = getFirestore(app);
+
+          // Вмикаємо офлайн-персистентність
+          try {
+            await enableIndexedDbPersistence(window.db);
+            console.log("Firestore persistence enabled.");
+          } catch (err) {
+            if (err.code == "failed-precondition") {
+              console.warn("Firestore persistence failed: multiple tabs open?");
+            } else if (err.code == "unimplemented") {
+              console.warn(
+                "Firestore persistence not supported in this browser."
+              );
+            }
+          }
+
+          window.auth = getAuth(app);
+
+          // Слухач зміни стану аутентифікації
+          onAuthStateChanged(window.auth, async (user) => {
+            if (!user) {
+              // Якщо користувача немає, виконуємо анонімний вхід.
+              // onAuthStateChanged буде викликано знову з новим користувачем.
+              const anonymousUser = await signInAnonymously(window.auth);
+              return; // Виходимо, щоб уникнути подвійного виконання
+            }
+            window.userId = user.uid;
+            window.isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", window.userId);
+
+            // Створення глобальної події готовності, яку можуть слухати інші скрипти
+            window.dispatchEvent(new CustomEvent("firestoreReady"));
+          });
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+        }
+      }
+
+      initializeFirebase();
+    </script>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
@@ -25,25 +117,23 @@
       <h2
         class="text-3xl font-extrabold text-gray-800 mb-6 border-b pb-2 text-center"
       >
-        Результати Тесту: <span id="test-summary-title">Завантаження...</span>
+        Результати Тесту:
+        <span id="test-summary-title" class="text-blue-600">...</span>
       </h2>
 
       <div
-        id="pass-fail-status"
-        class="text-center text-3xl font-extrabold text-white p-4 rounded-t-xl bg-gray-400 mb-6"
+        class="bg-white p-6 rounded-xl shadow-2xl mb-10 text-center border-t-4 border-blue-500"
       >
-        Завантаження статусу...
+        <p class="text-sm text-gray-500 mb-1" id="result-id-display">
+          ID Користувача: (Завантаження...)
+        </p>
+        <p class="text-6xl font-extrabold text-red-600" id="result-points">
+          0/0
+        </p>
+        <p class="text-xl text-gray-600 mt-2">Балів набрано (Прохідний: 0)</p>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-6 mb-12 text-center">
-        <div
-          class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
-        >
-          <p class="text-5xl font-extrabold text-blue-600" id="result-points">
-            0
-          </p>
-          <p class="text-gray-500 mt-1">Набрано балів</p>
-        </div>
+      <div class="grid grid-cols-3 gap-4 mb-10">
         <div
           class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
         >
@@ -51,6 +141,14 @@
             0%
           </p>
           <p class="text-gray-500 mt-1">Правильних відповідей</p>
+        </div>
+        <div
+          class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
+        >
+          <p class="text-5xl font-extrabold text-red-600" id="result-incorrect">
+            0
+          </p>
+          <p class="text-gray-500 mt-1">Помилок</p>
         </div>
         <div
           class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
@@ -80,17 +178,6 @@
 
       <section id="history-container" class="mt-12"></section>
     </main>
-
-    <footer class="bg-white shadow-inner p-4 mt-8">
-      <div class="container mx-auto max-w-4xl text-center">
-        <p class="text-gray-500 text-sm">
-          <a href="index.html" class="text-blue-600 hover:text-blue-800"
-            >Повернутися на головну</a
-          >
-        </p>
-      </div>
-    </footer>
-
     <script type="module" src="src/js/results.js"></script>
   </body>
 </html>

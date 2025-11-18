@@ -14,6 +14,94 @@
         white-space: pre-wrap;
       }
     </style>
+
+    <!-- Конфігурація Firebase для локальної розробки -->
+    <script src="src/js/firebase-config.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+      import {
+        getFirestore,
+        setLogLevel,
+        enableNetwork,
+        enableIndexedDbPersistence,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+      // Глобальні змінні, доступні для upload.js
+      window.db = null;
+      window.userId = null;
+      window.isAuthReady = false;
+
+      const appId =
+        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+      const firebaseConfig =
+        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
+        window.firebaseConfig ||
+        (typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {});
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      // Ініціалізація та Аутентифікація
+      async function initializeFirebase() {
+        try {
+          if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            console.error(
+              "Firebase config is missing. Using local storage fallback."
+            );
+            return; // Вихід, якщо конфігурації немає
+          }
+
+          const app = initializeApp(firebaseConfig);
+          window.db = getFirestore(app);
+
+          // Вмикаємо офлайн-персистентність
+          try {
+            await enableIndexedDbPersistence(window.db);
+            console.log("Firestore persistence enabled.");
+          } catch (err) {
+            if (err.code == "failed-precondition") {
+              console.warn("Firestore persistence failed: multiple tabs open?");
+            } else if (err.code == "unimplemented") {
+              console.warn(
+                "Firestore persistence not supported in this browser."
+              );
+            }
+          }
+
+          window.auth = getAuth(app);
+          setLogLevel("Debug");
+
+          // Слухач зміни стану аутентифікації
+          onAuthStateChanged(window.auth, async (user) => {
+            if (!user) {
+              // Якщо користувача немає, виконуємо анонімний вхід.
+              // onAuthStateChanged буде викликано знову з новим користувачем.
+              const anonymousUser = await signInAnonymously(window.auth);
+              return; // Виходимо, щоб уникнути подвійного виконання
+            }
+            window.userId = user.uid;
+            window.isAuthReady = true;
+            // Створення глобальної події готовності, яку можуть слухати інші скрипти
+            window.dispatchEvent(new CustomEvent("firestoreReady"));
+          });
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+        }
+      }
+
+      initializeFirebase();
+    </script>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
@@ -31,60 +119,68 @@
           <a
             href="index.html"
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
-            >Головна</a
+            >Тести</a
           >
         </nav>
       </div>
     </header>
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
-      <h2 class="text-3xl font-bold text-gray-800 mb-6" id="form-title">
-        Створити Власний Тест B2
+      <h2
+        id="upload-page-title"
+        class="text-3xl font-extrabold text-gray-800 mb-8 border-b pb-2 text-center"
+      >
+        Створити новий тест B2
       </h2>
 
       <form
         id="test-upload-form"
-        class="bg-white p-6 rounded-xl shadow-lg space-y-8"
+        class="bg-white p-6 md:p-10 rounded-xl shadow-2xl space-y-8"
       >
-        <fieldset class="border p-5 rounded-lg">
+        <fieldset class="border p-5 rounded-lg space-y-4">
           <legend class="text-2xl font-bold text-blue-700 px-2">
-            Загальні Параметри Тесту
+            Основна Інформація
           </legend>
-          <div class="grid md:grid-cols-3 gap-4 mt-4">
-            <div>
-              <label for="test-title" class="block text-gray-700 font-medium"
-                >Назва Тесту</label
-              >
-              <input
-                type="text"
-                id="test-title"
-                class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                required
-                placeholder="Наприклад: B2 Lesen Teil 1"
-              />
-            </div>
-            <div>
+          <div class="space-y-2">
+            <label for="test-title" class="block text-gray-700 font-semibold"
+              >Назва Тесту (наприклад, Lesen Teil 1)</label
+            >
+            <input
+              type="text"
+              id="test-title"
+              name="title"
+              class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
               <label
                 for="duration-minutes"
-                class="block text-gray-700 font-medium"
-                >Тривалість (хв)</label
+                class="block text-gray-700 font-semibold"
+                >Тривалість (хвилин)</label
               >
               <input
                 type="number"
                 id="duration-minutes"
+                name="duration_minutes"
                 class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 min="1"
-                value="45"
+                value="25"
                 required
               />
             </div>
-            <div>
-              <label for="passing-score" class="block text-gray-700 font-medium"
-                >Прохідний Бал</label
+            <div class="space-y-2">
+              <label
+                for="passing-score"
+                class="block text-gray-700 font-semibold"
+                >Прохідний бал (балів)</label
               >
               <input
                 type="number"
                 id="passing-score"
+                name="passing_score_points"
                 class="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 min="1"
                 value="15"
@@ -94,21 +190,22 @@
           </div>
         </fieldset>
 
-        <fieldset class="border p-5 rounded-lg">
+        <fieldset class="border p-5 rounded-lg" id="parts-fieldset">
           <legend class="text-2xl font-bold text-blue-700 px-2">
             Частини Завдань
           </legend>
           <div id="parts-container" class="space-y-8 mt-4"></div>
-          <div class="mt-6 text-center">
-            <button
-              type="button"
-              id="add-part-btn"
-              class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md"
-            >
-              ➕ Додати Частину Завдання
-            </button>
-          </div>
         </fieldset>
+
+        <div class="mt-6 text-center">
+          <button
+            type="button"
+            id="add-part-btn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md"
+          >
+            ➕ Додати Частину Завдання
+          </button>
+        </div>
 
         <div id="message-box" class="hidden"></div>
 
@@ -117,16 +214,11 @@
             type="submit"
             class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-12 rounded-full text-lg shadow-lg transform hover:scale-105 transition duration-300 ease-in-out"
           >
-            💾 Зберегти Тест (Завантажити JSON)
+            💾 Зберегти Тест у Firebase
           </button>
         </div>
       </form>
     </main>
-
-    <footer class="text-center p-4 text-gray-500 text-sm">
-      &copy; 2023 B2 Test Trainer
-    </footer>
-
-    <script src="src/js/upload.js"></script>
+    <script type="module" src="src/js/upload.js"></script>
   </body>
 </html>

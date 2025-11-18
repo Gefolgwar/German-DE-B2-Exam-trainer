@@ -1,22 +1,24 @@
+import { getDoc, doc, collection, query, onSnapshot, limit, orderBy } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
 // --- DOM Елементи ---
 const elements = {
     testSummaryTitle: document.getElementById('test-summary-title'),
     resultPoints: document.getElementById('result-points'),
     resultPercent: document.getElementById('result-percent'),
     resultTime: document.getElementById('result-time'),
+    resultIncorrect: document.getElementById('result-incorrect'),
     detailedReportContainer: document.getElementById('detailed-report-container'),
     reviewLink: document.getElementById('review-link'),
     resultIdDisplay: document.getElementById('result-id-display'), 
     historyContainer: document.getElementById('history-container'), 
 };
 
-// Глобальний стан для Firebase (залишаємо як є)
-let db = null;
-let userId = null;
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Глобальний стан для результатів
+let currentResultData = null;
+let currentTestSnapshot = null;
+let incorrectQuestions = [];
 
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 function formatTime(seconds) {
     if (seconds < 0) seconds = 0;
@@ -25,175 +27,275 @@ function formatTime(seconds) {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-// --- Firebase Ініціалізація та Завантаження Історії (залишаємо як є) ---
+/**
+ * Генерує HTML-розмітку для одного питання у звіті.
+ */
+function generateQuestionHtml({ q, originalIndex }) {
+    const detailedResult = currentResultData.detailedResults.find(r => r.questionId === q.id);
+    if (!detailedResult) return '';
 
-// (Функції setupFirebase, loadUserHistory залишаються без змін)
+    const isCorrect = detailedResult.isCorrect;
+    const userAnswerIndex = detailedResult.userAnswerIndex;
 
-// --- НОВА ФУНКЦІЯ: Згладжування питань з об'єкта 'parts' ---
-function flattenQuestions(resultsData) {
-    if (resultsData.questions && Array.isArray(resultsData.questions)) {
-        // Старий формат: список питань вже плоский
-        return resultsData.questions;
+    let optionsHtml = '';
+    q.options.forEach((option, optionIndex) => {
+        let optionClass = 'text-gray-700';
+        let icon = '';
+
+        if (optionIndex === q.correct_answer_index) {
+            // Це правильна відповідь
+            optionClass = 'bg-green-100 text-green-800 font-semibold border-green-500';
+            icon = '✅ Правильна';
+        } else if (optionIndex === userAnswerIndex) {
+            // Це неправильна відповідь користувача
+            optionClass = 'bg-red-100 text-red-800 font-semibold border-red-500';
+            icon = '❌ Ваша відповідь';
+        }
+
+        optionsHtml += `
+            <div class="p-3 rounded-lg border ${optionClass}">
+                <span class="font-bold mr-2">${String.fromCharCode(65 + optionIndex)}.</span> 
+                ${option}
+                <span class="float-right text-sm italic">${icon}</span>
+            </div>
+        `;
+    });
+
+    return `
+        <div class="bg-white p-6 rounded-xl shadow-md border-l-4 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
+            <div class="flex justify-between items-center mb-4">
+                 <h4 class="text-xl font-bold text-gray-800">
+                    Запитання ${originalIndex + 1}
+                    <span class="text-sm font-normal ml-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}">
+                        ${isCorrect ? '(Правильно)' : '(Помилка)'}
+                    </span>
+                </h4>
+            </div>
+            
+            <p class="text-gray-600 mb-4">${q.text}</p>
+            
+            <div class="space-y-2">
+                ${optionsHtml}
+            </div>
+
+            <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                <p class="font-semibold text-gray-700 mb-1">Пояснення:</p>
+                <p class="text-sm text-gray-600">${q.explanation || 'Пояснення відсутнє.'}</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Завантажує результат тесту та сам тест (snapshot) з Firestore.
+ * @param {string} resultId - ID результату тесту.
+ */
+async function loadResultData(resultId) {
+    if (!window.db) {
+         console.warn("Firestore not ready. Retrying loadResultData...");
+         setTimeout(() => loadResultData(resultId), 200);
+         return;
     }
     
-    if (resultsData.parts && Array.isArray(resultsData.parts)) {
-        // Новий формат: згладжуємо з частин
-        let flatList = [];
-        resultsData.parts.forEach(part => {
-            part.questions.forEach(q => {
-                // Додаємо інформацію про частину до питання для відображення
-                flatList.push({...q, partInstruction: part.instruction, partId: part.part_id }); 
-            });
-        });
-        return flatList;
+    if (!window.userId) {
+        // Це мало б не трапитися, якщо isAuthReady спрацював, але на всяк випадок
+        throw new Error("User ID is not available.");
     }
-    return [];
+    
+    const resultRef = doc(window.db, `artifacts/${appId}/users/${window.userId}/results`, resultId);
+
+    try {
+        const docSnap = await getDoc(resultRef);
+
+        if (docSnap.exists()) {
+            currentResultData = docSnap.data();
+            currentTestSnapshot = currentResultData.testSnapshot;
+            renderSummary();
+            loadUserHistory();
+        } else {
+             // Спроба завантажити з localStorage як запасний варіант
+            const localResult = localStorage.getItem('b2_last_result_data');
+            if (localResult) {
+                currentResultData = JSON.parse(localResult);
+                currentTestSnapshot = currentResultData.testSnapshot;
+                renderSummary();
+            } else {
+                throw new Error(`Результат з ID ${resultId} не знайдено.`);
+            }
+        }
+    } catch (error) {
+        console.error("Error loading result data:", error);
+        elements.detailedReportContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження результатів: ${error.message}</div>`;
+    }
 }
 
 
-// --- Логіка Відображення Результатів (ОНОВЛЕНО) ---
+/**
+ * Відображає зведену інформацію про результат.
+ */
+function renderSummary() {
+    if (!currentResultData || !currentTestSnapshot) return;
 
-function renderResults() {
-    const resultsJson = localStorage.getItem('b2_test_results');
-    if (!resultsJson) {
-        if (elements.testSummaryTitle) {
-            elements.testSummaryTitle.textContent = 'Результати не знайдено.';
-        }
+    const { correctPoints, totalQuestions, timeSpentSeconds, passingScore, detailedResults, testTitle } = currentResultData;
+    const percent = totalQuestions > 0 ? ((correctPoints / totalQuestions) * 100).toFixed(1) : 0;
+    const incorrectCount = totalQuestions - correctPoints;
+    
+    elements.testSummaryTitle.textContent = testTitle;
+    elements.resultPoints.innerHTML = `${correctPoints}/${totalQuestions} <span class="text-xl text-gray-500">(Прохідний: ${passingScore})</span>`;
+    elements.resultPercent.textContent = `${percent}%`;
+    elements.resultTime.textContent = formatTime(timeSpentSeconds);
+    elements.resultIncorrect.textContent = incorrectCount;
+    elements.resultIdDisplay.textContent = `ID Користувача: ${window.userId}`;
+
+    // Створюємо плоский масив питань для звіту, використовуючи знімок тесту
+    const flatQuestions = [];
+    currentTestSnapshot.parts.forEach(part => {
+        part.questions.forEach(q => flatQuestions.push(q));
+    });
+
+    incorrectQuestions = detailedResults
+        .filter(r => !r.isCorrect)
+        .map(r => {
+            const questionData = flatQuestions.find(q => q.id === r.questionId);
+            const originalIndex = flatQuestions.findIndex(q => q.id === r.questionId);
+            return { q: questionData, originalIndex: originalIndex };
+        });
+
+    let reportTitle = incorrectQuestions.length > 0 
+        ? `Детальний Звіт про ${incorrectQuestions.length} Помилок` 
+        : '🎉 Вітаємо! Всі відповіді правильні.';
+
+    let currentReportList = incorrectQuestions;
+    
+    // Початкове відображення - тільки помилки
+    elements.detailedReportContainer.innerHTML = `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` + 
+        currentReportList.map(generateQuestionHtml).join('');
+    
+    // Логіка перегляду (всі питання / лише помилки)
+    let isReviewingAll = false;
+    
+    if (elements.reviewLink) {
+        elements.reviewLink.textContent = incorrectQuestions.length > 0 ? '🔍 Переглянути Усі Питання' : '🔍 Переглянути Усі Питання';
+
+        elements.reviewLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            isReviewingAll = !isReviewingAll;
+            
+            if (isReviewingAll) {
+                // Показуємо всі питання
+                currentReportList = flatQuestions.map((q, index) => ({ q, originalIndex: index }));
+                reportTitle = `Детальний Звіт: Усі ${totalQuestions} Питань`;
+                elements.reviewLink.textContent = '❌ Приховати Правильні Відповіді';
+            } else {
+                // Показуємо лише помилки
+                currentReportList = incorrectQuestions;
+                reportTitle = incorrectQuestions.length > 0 ? `Детальний Звіт про ${incorrectQuestions.length} Помилок` : '🎉 Вітаємо! Всі відповіді правильні.';
+                elements.reviewLink.textContent = '🔍 Переглянути Усі Питання';
+            }
+            
+            elements.detailedReportContainer.innerHTML = `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` + 
+                currentReportList.map((item) => generateQuestionHtml(item)).join('');
+        });
+    }
+}
+
+/**
+ * Завантажує історію проходжень тестів поточного користувача з Firestore.
+ */
+function loadUserHistory() {
+    if (!window.db || !window.userId) {
+        console.warn("Firestore not ready or User ID missing for history load. Retrying...");
+        setTimeout(loadUserHistory, 500);
         return;
     }
 
-    const resultsData = JSON.parse(resultsJson);
-    
-    // Використовуємо функцію для отримання плоского списку питань
-    const questions = flattenQuestions(resultsData.testData); 
-    const userAnswers = resultsData.userAnswers || {};
-    
-    let correctCount = 0;
-    const totalQuestions = questions.length;
+    const historyRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
+    // Отримуємо останні 10 результатів, сортуючи за часом створення
+    const q = query(historyRef, orderBy("timestamp", "desc"), limit(10)); 
 
-    // 1. Обчислення результату
-    questions.forEach((q, index) => {
-        const userAnswerIndex = userAnswers[index];
-        if (userAnswerIndex !== undefined && userAnswerIndex === q.correct_answer_index) {
-            correctCount++;
-        }
-    });
-
-    const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    const isPassed = correctCount >= resultsData.passingScore;
-    
-    // 2. Відображення загальних даних
-    if (elements.testSummaryTitle) elements.testSummaryTitle.textContent = resultsData.title;
-    if (elements.resultPoints) elements.resultPoints.textContent = `${correctCount}/${totalQuestions}`;
-    if (elements.resultPercent) elements.resultPercent.textContent = `${percentage}%`;
-    if (elements.resultTime) elements.resultTime.textContent = formatTime(resultsData.timeSpent);
-
-    // Оновлення статусу "Складено/Не складено"
-    const statusBox = document.getElementById('pass-fail-status');
-    if (statusBox) {
-        if (isPassed) {
-            statusBox.textContent = 'Тест Складено! 🎉';
-            statusBox.className = 'text-center text-3xl font-extrabold text-white p-4 rounded-t-xl bg-green-500';
-        } else {
-            statusBox.textContent = 'Тест Не Складено. 😥';
-            statusBox.className = 'text-center text-3xl font-extrabold text-white p-4 rounded-t-xl bg-red-500';
-        }
-    }
-
-
-    // 3. Генерація детального звіту
-    if (elements.detailedReportContainer) {
+    // onSnapshot для оновлення в реальному часі
+    onSnapshot(q, (snapshot) => {
+        const historyItems = [];
+        snapshot.forEach(doc => {
+            historyItems.push({ id: doc.id, ...doc.data() });
+        });
         
-        // Звіт: Переглядаємо лише неправильні відповіді, якщо це початковий режим
-        const incorrectQuestions = questions
-            .map((q, index) => ({ q, originalIndex: index })) // Зберігаємо оригінальний індекс
-            .filter(item => userAnswers[item.originalIndex] !== item.q.correct_answer_index);
+        renderHistory(historyItems);
 
-        // Функція для генерації HTML одного питання/відповіді
-        const generateQuestionHtml = (item) => {
-            const { q, originalIndex: index } = item; // Використовуємо оригінальний індекс
-            const userAnswerIndex = userAnswers[index];
-            const isCorrect = userAnswerIndex === q.correct_answer_index;
-            const statusClass = isCorrect ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500';
-            const statusEmoji = isCorrect ? '✅' : '❌';
+    }, (error) => {
+        console.error("Error fetching history from Firestore:", error);
+        renderHistory([]); // Відображаємо пусту історію в разі помилки
+    });
+}
 
-            return `
-                <div class="p-4 rounded-xl shadow-md border-l-4 ${statusClass}">
-                    <h5 class="font-bold text-lg text-gray-800 mb-2">
-                        ${statusEmoji} Питання ${index + 1} (${q.partInstruction ? q.partInstruction.substring(0, 30) + '...' : 'Завдання'})
-                    </h5>
-                    <p class="mb-3 text-gray-700 font-medium">${q.text}</p>
-                    
-                    <div class="space-y-2 text-sm">
-                        ${q.options.map((option, optIndex) => {
-                            const isCorrectAnswer = optIndex === q.correct_answer_index;
-                            const isUserAnswer = optIndex === userAnswerIndex;
-                            let optionClass = 'p-2 rounded';
-                            
-                            if (isCorrectAnswer) {
-                                optionClass += ' bg-green-200 font-semibold';
-                            } else if (isUserAnswer) {
-                                optionClass += ' bg-red-200 font-semibold';
-                            } else {
-                                optionClass += ' bg-gray-50';
-                            }
+/**
+ * Відображає історію проходжень тестів.
+ * @param {Array} historyItems - Масив об'єктів історії.
+ */
+function renderHistory(historyItems) {
+    if (!elements.historyContainer) return;
 
-                            return `<p class="${optionClass}">
-                                ${String.fromCharCode(65 + optIndex)}. ${option} 
-                                ${isCorrectAnswer ? ' (Правильно)' : ''}
-                                ${isUserAnswer && !isCorrectAnswer ? ' (Ваша відповідь)' : ''}
-                            </p>`;
-                        }).join('')}
+    let historyHtml = `
+        <h3 class="text-2xl font-bold text-gray-700 mb-4">Ваша Історія Проходжень (Останні 10)</h3>
+        <div class="space-y-3">
+    `;
+
+    if (historyItems.length === 0) {
+        historyHtml += `<p class="p-4 bg-yellow-100 text-yellow-700 rounded-lg">Ви ще не завершили жодного тесту, який було збережено у Firebase.</p>`;
+    } else {
+        historyItems.forEach(item => {
+            const date = new Date(item.timestamp).toLocaleString('uk-UA');
+            const percent = item.totalQuestions > 0 ? ((item.correctPoints / item.totalQuestions) * 100).toFixed(0) : 0;
+            const statusClass = item.correctPoints >= item.passingScore ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50';
+            const statusText = item.correctPoints >= item.passingScore ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО';
+
+            historyHtml += `
+                <div class="p-4 rounded-lg shadow-md border-l-4 ${statusClass} flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold text-gray-800">${item.testTitle}</p>
+                        <p class="text-sm text-gray-500">${date} | ${item.correctPoints}/${item.totalQuestions} балів</p>
                     </div>
-
-                    <div class="mt-4 p-3 bg-gray-50 border-l-4 border-blue-400 rounded">
-                        <p class="font-semibold text-blue-700">Пояснення:</p>
-                        <p class="text-gray-700">${q.explanation}</p>
+                    <div class="text-right">
+                        <p class="font-bold text-lg ${statusClass.includes('green') ? 'text-green-700' : 'text-red-700'}">${percent}%</p>
+                        <a href="results-page.html?resultId=${item.id}" 
+                           onclick="localStorage.removeItem('b2_last_result_id');"
+                           class="text-sm text-blue-500 hover:text-blue-700 transition">
+                           Переглянути звіт
+                        </a>
                     </div>
                 </div>
             `;
-        };
-        
-        // Відображаємо тільки неправильні відповіді за замовчуванням
-        let currentReportList = incorrectQuestions;
-        let reportTitle = incorrectQuestions.length > 0 ? `Детальний Звіт про ${incorrectQuestions.length} Помилок` : '🎉 Вітаємо! Всі відповіді правильні.';
-        
-        elements.detailedReportContainer.innerHTML = 
-            `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` + 
-            currentReportList.map(generateQuestionHtml).join('');
-
-
-        // 4. Обробник кнопки "Переглянути Помилки/Всі Питання"
-        let isReviewingAll = false;
-        if (elements.reviewLink) {
-            elements.reviewLink.textContent = '🔍 Переглянути Всі Питання';
-            elements.reviewLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                isReviewingAll = !isReviewingAll;
-                
-                if (isReviewingAll) {
-                    currentReportList = questions.map((q, index) => ({ q, originalIndex: index }));
-                    reportTitle = `Детальний Звіт: Усі ${totalQuestions} Питань`;
-                    elements.reviewLink.textContent = '❌ Приховати Правильні Відповіді';
-                } else {
-                    currentReportList = incorrectQuestions;
-                    reportTitle = incorrectQuestions.length > 0 ? `Детальний Звіт про ${incorrectQuestions.length} Помилок` : '🎉 Вітаємо! Всі відповіді правильні.';
-                    elements.reviewLink.textContent = '🔍 Переглянути Всі Питання';
-                }
-                
-                elements.detailedReportContainer.innerHTML = `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` + 
-                    currentReportList.map(generateQuestionHtml).join('');
-            });
-        }
+        });
     }
 
-    // loadUserHistory(); // (Якщо ви використовуєте Firebase, ця функція завантажує історію)
+    historyHtml += `</div>`;
+    elements.historyContainer.innerHTML = historyHtml;
 }
+
 
 // --- Ініціалізація ---
 document.addEventListener('DOMContentLoaded', () => {
-    renderResults();
-});
+    // Отримуємо ID результату з URL або localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const resultId = urlParams.get('resultId') || localStorage.getItem('b2_last_result_id');
 
-// Функція-заглушка для Firebase, якщо вона використовується
-function loadUserHistory() { /* Функція Firebase */ }
+    // Якщо Firebase готовий, завантажуємо дані
+    if (window.isAuthReady) {
+        if (resultId) {
+             loadResultData(resultId);
+        } else {
+            console.error("No result ID provided. Cannot load test results.");
+            loadUserHistory(); // Хоча б завантажити історію, якщо це можливо
+        }
+    } else {
+        // Чекаємо готовності Firebase, а потім завантажуємо дані
+        window.addEventListener('firestoreReady', () => {
+             if (resultId) {
+                 loadResultData(resultId);
+             } else {
+                 console.error("No result ID provided. Cannot load test results.");
+                 loadUserHistory();
+             }
+        });
+    }
+});

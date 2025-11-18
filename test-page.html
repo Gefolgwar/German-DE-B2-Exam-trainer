@@ -24,59 +24,145 @@
         -ms-user-select: none;
       }
     </style>
+
+    <!-- Конфігурація Firebase для локальної розробки -->
+    <script src="src/js/firebase-config.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+      import {
+        getFirestore,
+        setLogLevel,
+        enableIndexedDbPersistence,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+      // Глобальні змінні, доступні для main.js
+      window.db = null;
+      window.userId = null;
+      window.isAuthReady = false;
+
+      const appId =
+        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+      const firebaseConfig =
+        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
+        window.firebaseConfig ||
+        (typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {});
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      // Ініціалізація та Аутентифікація
+      async function initializeFirebase() {
+        try {
+          if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            console.error(
+              "Firebase config is missing. Using local storage fallback."
+            );
+            return; // Вихід, якщо конфігурації немає
+          }
+
+          const app = initializeApp(firebaseConfig);
+          window.db = getFirestore(app);
+
+          // Вмикаємо офлайн-персистентність
+          try {
+            await enableIndexedDbPersistence(window.db);
+            console.log("Firestore persistence enabled.");
+          } catch (err) {
+            if (err.code == "failed-precondition") {
+              console.warn("Firestore persistence failed: multiple tabs open?");
+            } else if (err.code == "unimplemented") {
+              console.warn(
+                "Firestore persistence not supported in this browser."
+              );
+            }
+          }
+
+          window.auth = getAuth(app);
+          setLogLevel("Debug");
+
+          // Слухач зміни стану аутентифікації
+          onAuthStateChanged(window.auth, async (user) => {
+            if (!user) {
+              // Якщо користувача немає, виконуємо анонімний вхід.
+              // onAuthStateChanged буде викликано знову з новим користувачем.
+              const anonymousUser = await signInAnonymously(window.auth);
+              return; // Виходимо, щоб уникнути подвійного виконання
+            }
+            window.userId = user.uid;
+            window.isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", window.userId);
+
+            // Створення глобальної події готовності, яку можуть слухати інші скрипти
+            window.dispatchEvent(new CustomEvent("firestoreReady"));
+          });
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+        }
+      }
+
+      initializeFirebase();
+    </script>
   </head>
   <body
     class="bg-gray-50 min-h-screen flex flex-col noselect"
     autocomplete="off"
   >
-    <header class="bg-white shadow-lg p-4 sticky top-0 z-10">
+    <header class="bg-white shadow-lg p-4 sticky top-0 z-20">
       <div
-        class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap"
+        class="container mx-auto max-w-4xl flex justify-between items-center"
       >
-        <h1 class="text-xl font-bold text-gray-800" id="current-test-title">
-          B2 Test Trainer
+        <h1 class="text-xl font-bold text-gray-800">
+          <a
+            href="index.html"
+            class="hover:text-blue-600 transition duration-150"
+            >B2 Test Trainer</a
+          >
         </h1>
-
-        <div class="flex items-center space-x-4 mt-2 md:mt-0">
-          <div class="text-lg font-semibold text-gray-600">
-            Питання:
-            <span id="progress-indicator" class="text-blue-600">0/0</span>
-          </div>
-          <div class="flex items-center bg-blue-100 p-2 rounded-lg shadow-sm">
-            <svg
-              class="w-6 h-6 text-blue-600 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              ></path>
-            </svg>
-            <span id="timer" class="text-2xl font-extrabold text-blue-800"
-              >00:00</span
-            >
+        <div class="flex items-center space-x-4">
+          <div
+            id="timer"
+            class="text-xl font-mono font-extrabold text-red-600 bg-red-100 p-2 rounded-lg shadow"
+          >
+            --:--
           </div>
         </div>
       </div>
     </header>
 
-    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
+    <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 pb-32">
+      <h2
+        id="current-test-title"
+        class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2"
+      >
+        Тест
+      </h2>
+
+      <div
+        id="progress-indicator"
+        class="w-full bg-gray-200 rounded-full h-2.5 mb-6"
+      >
+        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+      </div>
+
       <section
         id="stimulus-container"
-        class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-400 mb-8"
+        class="bg-white p-6 rounded-xl shadow-lg mb-8"
       >
-        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">
-          Завдання до Частини:
+        <h3 class="text-xl font-bold text-blue-700 mb-4 border-b pb-2">
+          Тексти / Медіа
         </h3>
-
-        <div id="part-instruction-content" class="mt-4 mb-4"></div>
-
-        <div id="part-media-content" class="space-y-4"></div>
+        <div id="stimulus-text" class="space-y-4"></div>
       </section>
 
       <section id="questions-container" class="space-y-8">
@@ -105,17 +191,12 @@
           <button
             id="next-btn"
             class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
-            disabled
           >
             Наступне →
           </button>
         </div>
-        <p class="text-center text-xs text-gray-500 mt-2">
-          Для навігації по тесту використовуйте ці кнопки, а не кнопки браузера.
-        </p>
       </div>
     </footer>
-
     <script type="module" src="src/js/main.js"></script>
   </body>
 </html>

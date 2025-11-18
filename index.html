@@ -12,6 +12,97 @@
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       }
     </style>
+
+    <!-- Конфігурація Firebase для локальної розробки -->
+    <script src="src/js/firebase-config.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+      import {
+        getFirestore,
+        enableIndexedDbPersistence,
+      } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+      // Глобальні змінні, доступні для main.js
+      window.db = null;
+      window.userId = null;
+      window.isAuthReady = false;
+
+      const appId =
+        typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+      const firebaseConfig =
+        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
+        window.firebaseConfig ||
+        (typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {});
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      // Ініціалізація та Аутентифікація
+      async function initializeFirebase() {
+        try {
+          if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            console.error(
+              "Firebase config is missing. Using local storage fallback."
+            );
+            return; // Вихід, якщо конфігурації немає
+          }
+
+          const app = initializeApp(firebaseConfig);
+          window.db = getFirestore(app);
+
+          // Вмикаємо офлайн-персистентність
+          try {
+            await enableIndexedDbPersistence(window.db);
+            console.log("Firestore persistence enabled.");
+          } catch (err) {
+            if (err.code == "failed-precondition") {
+              console.warn("Firestore persistence failed: multiple tabs open?");
+            } else if (err.code == "unimplemented") {
+              console.warn(
+                "Firestore persistence not supported in this browser."
+              );
+            }
+          }
+
+          window.auth = getAuth(app);
+
+          // Встановлюємо рівень логування для відладки
+          // setLogLevel('Debug');
+
+          // Слухач зміни стану аутентифікації
+          onAuthStateChanged(window.auth, async (user) => {
+            if (!user) {
+              // Якщо користувача немає, виконуємо анонімний вхід.
+              // onAuthStateChanged буде викликано знову з новим користувачем.
+              const anonymousUser = await signInAnonymously(window.auth);
+              return; // Виходимо, щоб уникнути подвійного виконання
+            }
+            window.userId = user.uid;
+            window.isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", window.userId);
+
+            // Створення глобальної події готовності, яку можуть слухати інші скрипти
+            window.dispatchEvent(new CustomEvent("firestoreReady"));
+          });
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+        }
+      }
+
+      initializeFirebase();
+      console.log("Firebase Init script loaded.");
+    </script>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
@@ -101,7 +192,6 @@
     <footer class="text-center p-4 text-gray-500 text-sm mt-8">
       &copy; 2023 B2 Test Trainer
     </footer>
-
-    <script src="src/js/main.js"></script>
+    <script type="module" src="src/js/main.js"></script>
   </body>
 </html>
