@@ -31,7 +31,7 @@ async function fetchUserStats(userId) {
   );
   const allResultsSnap = await getDocs(resultsRef);
   if (allResultsSnap.empty) {
-    return { testsTaken: 0, lastActivity: "Немає", avgPercent: 0, aiRequests: 0 };
+    return { testsTaken: 0, lastActivity: "Keine", avgPercent: 0, aiRequests: 0 };
   }
   let totalPercent = 0;
   let count = 0;
@@ -54,7 +54,7 @@ async function fetchUserStats(userId) {
   const avgPercent = count > 0 ? (totalPercent / count) : 0;
   return {
     testsTaken: count,
-    lastActivity: lastTimestamp ? new Date(lastTimestamp).toLocaleString("uk-UA") : "Немає",
+    lastActivity: lastTimestamp ? new Date(lastTimestamp).toLocaleString("de-DE") : "Keine",
     avgPercent: avgPercent.toFixed(1),
     aiRequests
   };
@@ -65,7 +65,7 @@ async function loadUsers() {
   const snapshot = await getDocs(usersRef);
 
   if (snapshot.empty) {
-    usersListContainer.innerHTML = "<p>Користувачів не знайдено.</p>";
+    usersListContainer.innerHTML = "<p>Keine Benutzer gefunden.</p>";
     return;
   }
 
@@ -95,10 +95,10 @@ async function loadUsers() {
 
         testUserControlsHtml = `
             <div class="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                <label for="test-user-limit" class="text-xs font-semibold text-orange-700 block mb-1">Кількість доступних тестів:</label>
+                <label for="test-user-limit" class="text-xs font-semibold text-orange-700 block mb-1">Anzahl verfügbarer Tests:</label>
                 <div class="flex items-center gap-2">
                     <input type="number" id="test-user-limit" value="${currentLimit}" min="1" class="w-full p-1 border border-gray-300 rounded-md text-xs">
-                    <button class="btn-save-limit bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-1 px-2 rounded">Зберегти</button>
+                    <button class="btn-save-limit bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-1 px-2 rounded">Speichern</button>
                 </div>
             </div>
         `;
@@ -156,23 +156,23 @@ function renderUsers() {
       <div>
         <div>
           <p class="font-bold text-lg">${user.email || userId}</p>
-          <p class="text-sm text-gray-600">Роль: <span class="font-semibold ${user.role === 'admin' ? 'text-purple-600' : 'text-gray-700'}">${user.role || 'user'}</span></p>
-          <p class="text-xs text-gray-400 mt-1">Створено: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString("uk-UA") : 'Невідомо'}</p>
+          <p class="text-sm text-gray-600">Rolle: <span class="font-semibold ${user.role === 'admin' ? 'text-purple-600' : 'text-gray-700'}">${user.role || 'user'}</span></p>
+          <p class="text-xs text-gray-400 mt-1">Erstellt am: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString("de-DE") : 'Unbekannt'}</p>
         </div>
         ${user.testUserControlsHtml}
         ${user.email !== 'TestUser@test.com' ? `
             <div class="mt-2">
               <button data-email="${user.email}" class="btn-reset-password text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-2 rounded">
-                Скинути пароль
+                Passwort zurücksetzen
               </button>
             </div>
-        ` : '<div class="mt-2"><span class="text-xs text-gray-400">(Тестовий користувач)</span></div>'}
+        ` : '<div class="mt-2"><span class="text-xs text-gray-400">(Testbenutzer)</span></div>'}
       </div>
       <div class="text-right">
-        <p>Тестів пройдено: <span class="font-bold">${user.stats.testsTaken}</span></p>
-        <p class="text-sm text-gray-500">Остання активність: ${user.stats.lastActivity}</p>
-        <p class="text-sm text-blue-700">Середній % проходження: <span class="font-bold">${user.stats.avgPercent}%</span></p>
-          <p class="text-sm text-pink-700">AI API-запитів: <span class="font-bold">${user.stats.aiRequests}</span></p>
+        <p>Tests absolviert: <span class="font-bold">${user.stats.testsTaken}</span></p>
+        <p class="text-sm text-gray-500">Letzte Aktivität: ${user.stats.lastActivity}</p>
+        <p class="text-sm text-blue-700">Durchschnittl. Bestehensquote: <span class="font-bold">${user.stats.avgPercent}%</span></p>
+          <p class="text-sm text-pink-700">KI-API-Anfragen: <span class="font-bold">${user.stats.aiRequests}</span></p>
       </div>
     `;
     usersListContainer.appendChild(userCard);
@@ -182,21 +182,21 @@ function renderUsers() {
     const globalStats = document.getElementById('admin-global-stats');
     if (globalStats) {
       globalStats.innerHTML = `
-        <span>Загальна кількість користувачів: <span class="font-bold">${totalUsers}</span></span>
-        <span>Загальна кількість AI API-запитів: <span class="font-bold">${totalAIRequests}</span></span>
+        <span>Gesamtzahl der Benutzer: <span class="font-bold">${totalUsers}</span></span>
+        <span>Gesamtzahl der KI-API-Anfragen: <span class="font-bold">${totalAIRequests}</span></span>
       `;
     }
   // Додаємо обробники для кнопок скидання пароля
   document.querySelectorAll('.btn-reset-password').forEach(button => {
     button.addEventListener('click', async (e) => {
         const email = e.target.dataset.email;
-        if (confirm(`Ви впевнені, що хочете надіслати лист для скидання пароля на ${email}?`)) {
+        if (confirm(`Sind Sie sicher, dass Sie eine E-Mail zum Zurücksetzen des Passworts an ${email} senden möchten?`)) {
             try {
                 await sendPasswordResetEmail(auth, email);
-                alert(`Лист для скидання пароля успішно надіслано на ${email}. Не забудьте перевірити спам.`);
+                alert(`E-Mail zum Zurücksetzen des Passworts erfolgreich an ${email} gesendet. Überprüfen Sie auch Ihren Spam-Ordner.`);
             } catch (error) {
                 console.error("Password reset error:", error);
-                alert(`Не вдалося надіслати лист: ${error.message}`);
+                alert(`E-Mail konnte nicht gesendet werden: ${error.message}`);
             }
         }
     });
@@ -208,14 +208,14 @@ function renderUsers() {
         const inputElement = e.target.closest('div').querySelector('input');
         const newLimit = parseInt(inputElement.value, 10);
 
-        if (newLimit > 0 && confirm(`Встановити ліміт у ${newLimit} тест(ів) для TestUser?`)) {
+        if (newLimit > 0 && confirm(`Limit auf ${newLimit} Test(s) für TestUser setzen?`)) {
             try {
                 const configDocRef = doc(db, 'configs', 'app_settings');
                 await updateDoc(configDocRef, { testUserTestLimit: newLimit });
-                alert('Ліміт тестів успішно оновлено!');
+                alert('Testlimit erfolgreich aktualisiert!');
             } catch (error) {
                 console.error("Error updating test assignment:", error);
-                alert(`Помилка оновлення: ${error.message}`);
+                alert(`Fehler beim Aktualisieren: ${error.message}`);
             }
         }
     });
@@ -253,7 +253,7 @@ onAuthStateChanged(auth, (user) => {
             loadTestsStats(); // Завантажуємо статистику тестів
         } else {
             if (usersListContainer) {
-                usersListContainer.innerHTML = '<p class="text-red-600">У вас немає прав доступу до цієї сторінки.</p>';
+                usersListContainer.innerHTML = '<p class="text-red-600">Sie haben keine Berechtigung, auf diese Seite zuzugreifen.</p>';
             }
             if (testsStatsContainer) {
                 testsStatsContainer.innerHTML = ''; // Очищуємо, якщо немає прав
@@ -270,7 +270,7 @@ onAuthStateChanged(auth, (user) => {
  */
 async function loadTestsStats() {
     if (!testsStatsContainer) return;
-    testsStatsContainer.innerHTML = '<p>Завантаження статистики тестів...</p>';
+    testsStatsContainer.innerHTML = '<p>Teststatistiken werden geladen...</p>';
 
     try {
         // 1. Отримуємо всі тести
@@ -302,7 +302,7 @@ async function loadTestsStats() {
 
         // 3. Рендеримо картки
         if (Object.keys(tests).length === 0) {
-            testsStatsContainer.innerHTML = '<p>Тестів для аналізу не знайдено.</p>';
+            testsStatsContainer.innerHTML = '<p>Keine Tests zur Analyse gefunden.</p>';
             return;
         }
 
@@ -317,8 +317,8 @@ async function loadTestsStats() {
                     <p class="font-bold text-lg text-blue-800">${test.title}</p>
                     <p class="text-xs text-gray-500 mb-2">ID: ${testId}</p>
                     <div class="text-right">
-                        <p>Кількість проходжень: <span class="font-bold">${testStat.completions}</span></p>
-                        <p class="text-sm text-blue-700">Середній % проходження: <span class="font-bold">${avgPercent.toFixed(1)}%</span></p>
+                        <p>Anzahl der Durchführungen: <span class="font-bold">${testStat.completions}</span></p>
+                        <p class="text-sm text-blue-700">Durchschnittl. Bestehensquote: <span class="font-bold">${avgPercent.toFixed(1)}%</span></p>
                     </div>
                 </div>
             `;
@@ -327,6 +327,6 @@ async function loadTestsStats() {
 
     } catch (error) {
         console.error("Error loading tests stats:", error);
-        testsStatsContainer.innerHTML = `<p class="text-red-600">Помилка завантаження статистики тестів: ${error.message}</p>`;
+        testsStatsContainer.innerHTML = `<p class="text-red-600">Fehler beim Laden der Teststatistiken: ${error.message}</p>`;
     }
 }

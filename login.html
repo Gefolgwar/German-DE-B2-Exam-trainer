@@ -12,81 +12,119 @@
       }
     </style>
   </head>
-  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
-      <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
-        B2 Test Trainer
-      </h1>
-      <h2 class="text-xl font-semibold text-center text-gray-600 mb-8">
-        Вхід для користувачів
-      </h2>
+  <body class="bg-gray-100 min-h-screen">
+    <div
+      class="flex flex-col items-center justify-center min-h-screen py-12 px-4"
+    >
+      <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+          B2 Test Trainer
+        </h1>
+        <h2 class="text-xl font-semibold text-center text-gray-600 mb-8">
+          Benutzeranmeldung
+        </h2>
 
-      <form id="login-form" class="space-y-6">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700"
-            >Email</label
+        <form id="login-form" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700"
+              >Email</label
+            >
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              for="password"
+              class="block text-sm font-medium text-gray-700"
+              >Пароль</label
+            >
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Anmelden
+            </button>
+          </div>
+        </form>
+        <div class="text-sm text-center mt-4">
+          <a
+            href="#"
+            id="forgot-password-link"
+            class="font-medium text-gray-600 hover:text-blue-500"
+            >Passwort vergessen?</a
           >
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
         </div>
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700"
-            >Пароль</label
-          >
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required
-            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
+        <div
+          id="error-message"
+          class="hidden mt-4 text-center text-red-600"
+        ></div>
+        <div class="relative flex py-5 items-center">
+          <div class="flex-grow border-t border-gray-300"></div>
+          <span class="flex-shrink mx-4 text-gray-400">Oder</span>
+          <div class="flex-grow border-t border-gray-300"></div>
         </div>
-        <div>
-          <button
-            type="submit"
-            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Увійти
-          </button>
-        </div>
-      </form>
-      <div class="text-sm text-center mt-4">
-        <a
-          href="#"
-          id="forgot-password-link"
-          class="font-medium text-gray-600 hover:text-blue-500"
-          >Забули пароль?</a
+        <button
+          id="login-as-testuser-btn"
+          class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
+          Ohne Registrierung testen
+        </button>
+
+        <div class="mt-6 text-center text-sm text-gray-600">
+          Немає облікового запису?
+          <a
+            href="register.html"
+            class="font-medium text-blue-600 hover:text-blue-500"
+            >Registrieren</a
+          >
+        </div>
       </div>
-      <div
-        id="error-message"
-        class="hidden mt-4 text-center text-red-600"
-      ></div>
-      <div class="relative flex py-5 items-center">
-        <div class="flex-grow border-t border-gray-300"></div>
-        <span class="flex-shrink mx-4 text-gray-400">Або</span>
-        <div class="flex-grow border-t border-gray-300"></div>
-      </div>
-      <button
-        id="login-as-testuser-btn"
-        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+
+      <section
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-12 text-center max-w-5xl"
       >
-        Спробувати без реєстрації
-      </button>
-
-      <div class="mt-6 text-center text-sm text-gray-600">
-        Немає облікового запису?
-        <a
-          href="register.html"
-          class="font-medium text-blue-600 hover:text-blue-500"
-          >Зареєструватися</a
-        >
-      </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">⏱️</div>
+          <h3 class="text-xl font-semibold mb-2">Zeitlimit</h3>
+          <p class="text-gray-600">
+            Prüfungssimulation mit realistischem Timer.
+          </p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">✔️</div>
+          <h3 class="text-xl font-semibold mb-2">Sofortiges Feedback</h3>
+          <p class="text-gray-600">
+            Überprüfung der Antworten und detaillierter Fehlerbericht.
+          </p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-blue-500 mb-3">💻</div>
+          <h3 class="text-xl font-semibold mb-2">Adaptives Design</h3>
+          <p class="text-gray-600">
+            Benutzerfreundliche Oberfläche auf jedem Gerät.
+          </p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-lg">
+          <div class="text-4xl text-green-500 mb-3">🤖</div>
+          <h3 class="text-xl font-semibold mb-2">
+            Der schriftliche Test wird von KI geprüft.
+          </h3>
+        </div>
+      </section>
     </div>
 
     <!-- Firebase SDKs та Логіка -->

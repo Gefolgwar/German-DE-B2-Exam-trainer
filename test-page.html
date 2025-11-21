@@ -37,6 +37,8 @@
       import {
         getFirestore,
         setLogLevel,
+        doc,
+        getDoc,
         enableIndexedDbPersistence,
         initializeFirestore,
         persistentLocalCache,
@@ -45,6 +47,7 @@
       // Глобальні змінні, доступні для main.js
       window.db = null;
       window.userId = null;
+      window.userRole = "user"; // За замовчуванням
       window.isAuthReady = false;
 
       const appId =
@@ -89,18 +92,28 @@
 
           // Слухач зміни стану аутентифікації
           onAuthStateChanged(window.auth, async (user) => {
-            if (!user) {
-              // Якщо користувача немає, виконуємо анонімний вхід.
-              // onAuthStateChanged буде викликано знову з новим користувачем.
-              const anonymousUser = await signInAnonymously(window.auth);
-              return; // Виходимо, щоб уникнути подвійного виконання
+            if (user) {
+              window.userId = user.uid;
+              const userDocRef = doc(window.db, "users", user.uid);
+              const userDoc = await getDoc(userDocRef);
+              if (userDoc.exists()) {
+                const role = userDoc.data().role;
+                if (role === "admin" || role === "test") {
+                  window.userRole = role;
+                }
+              }
+              window.isAuthReady = true;
+              console.log(
+                "Firebase Auth Ready. User ID:",
+                window.userId,
+                "Role:",
+                window.userRole
+              );
+              // Створення глобальної події готовності, яку можуть слухати інші скрипти
+              window.dispatchEvent(new CustomEvent("firestoreReady"));
+            } else {
+              window.location.href = "login.html";
             }
-            window.userId = user.uid;
-            window.isAuthReady = true;
-            console.log("Firebase Auth Ready. User ID:", window.userId);
-
-            // Створення глобальної події готовності, яку можуть слухати інші скрипти
-            window.dispatchEvent(new CustomEvent("firestoreReady"));
           });
         } catch (error) {
           console.error("Error initializing Firebase:", error);
@@ -154,6 +167,14 @@
       </div>
     </header>
 
+    <div
+      id="test-user-banner"
+      class="hidden bg-red-100 border-t-4 border-b-4 border-red-500 text-red-700 px-4 py-3 text-center"
+      role="alert"
+    >
+      Dies ist der Testmodus. Nur ein Test ist verfügbar. Registrieren Sie sich!
+    </div>
+
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8 pb-32">
       <h2
         id="current-test-title"
@@ -192,25 +213,39 @@
             class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
             disabled
           >
-            ← Попереднє
+            ← Zurück
           </button>
 
           <button
             id="finish-btn"
             class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition duration-300 disabled:opacity-50"
           >
-            Завершити Тест
+            Test beenden
           </button>
 
           <button
             id="next-btn"
             class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
           >
-            Наступне →
+            Weiter →
           </button>
         </div>
       </div>
     </footer>
+    <script>
+      function showTestUserBanner() {
+        if (window.userRole === "test") {
+          document
+            .getElementById("test-user-banner")
+            .classList.remove("hidden");
+        }
+      }
+      if (window.isAuthReady) {
+        showTestUserBanner();
+      } else {
+        window.addEventListener("firestoreReady", showTestUserBanner);
+      }
+    </script>
     <script type="module" src="src/js/main.js"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        background-color: #f9fafb; /* bg-gray-50 */
       }
     </style>
 
@@ -39,6 +40,7 @@
       window.userId = null;
       window.userRole = "user"; // Додано: змінна для зберігання ролі
       window.isAuthReady = false;
+      window.isTestUser = false;
 
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-app-id";
@@ -86,6 +88,7 @@
 
             if (user) {
               window.userId = user.uid;
+              window.isTestUser = user.email === "TestUser@test.com";
 
               // --- ЛОГІКА ПЕРЕВІРКИ РОЛІ АДМІНА ---
               const userDocRef = doc(window.db, "users", user.uid);
@@ -138,33 +141,39 @@
             id="admin-panel-link"
             href="admin.html"
             class="hidden text-purple-600 hover:text-purple-800 font-medium"
-            >Адмін-панель</a
+            >Admin-Panel</a
           >
           <a
             href="history-page.html"
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
-            >📜 Моя Історія</a
+            >📜 Mein Verlauf</a
           >
           <a
             href="index.html"
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
-            >Головна</a
+            >Startseite</a
           >
           <a
             id="ai-example-link"
             href="indexAI.html"
             class="hidden text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
-            >Приклад ШІ</a
+            >KI-Beispiel</a
           >
           <button
             onclick="window.logout()"
             class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm"
           >
-            Вийти
+            Ausloggen
           </button>
         </nav>
       </div>
     </header>
+
+    <div
+      id="test-user-banner"
+      class="hidden bg-red-100 border-t-4 border-b-4 border-red-500 text-red-700 px-4 py-3 text-center"
+      role="alert"
+    ></div>
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
       <h2
@@ -225,7 +234,7 @@
           id="review-link"
           class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition duration-300"
         >
-          🔍 Переглянути Помилки
+          🔍 Fehler überprüfen
         </a>
       </div>
 
@@ -237,6 +246,21 @@
 
       <section id="history-container" class="mt-12"></section>
     </main>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        function showTestUserBanner() {
+          if (window.userRole === "test") {
+            const banner = document.getElementById("test-user-banner");
+            if (banner) {
+              banner.innerHTML = `Dies ist der Testmodus. Nur ein Test ist verfügbar. <a href="register.html" class="font-bold underline hover:text-red-900">Registrieren Sie sich!</a>`;
+              banner.classList.remove("hidden");
+            }
+          }
+        }
+        if (window.isAuthReady) showTestUserBanner();
+        else window.addEventListener("firestoreReady", showTestUserBanner);
+      });
+    </script>
     <script type="module" src="src/js/results.js"></script>
   </body>
 </html>

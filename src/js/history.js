@@ -35,9 +35,9 @@ let currentSort = {
 /**
  */
 window.deleteReport = async (reportId) => {
-    if (!confirm('Ви впевнені, що хочете видалити цей звіт?')) return;
+    if (!confirm('Sind Sie sicher, dass Sie diesen Bericht löschen möchten?')) return;
     if (!window.db || !window.userId) {
-        alert('Помилка: Firebase не ініціалізовано або користувач не авторизований.');
+        alert('Fehler: Firebase ist nicht initialisiert oder der Benutzer ist nicht autorisiert.');
         return;
     }
 
@@ -48,7 +48,7 @@ window.deleteReport = async (reportId) => {
         loadUserHistory(elements.startDateInput.value, elements.endDateInput.value);
     } catch (error) {
         console.error('Помилка видалення звіту:', error);
-        alert('Помилка при видаленні звіту: ' + error.message);
+        alert('Fehler beim Löschen des Berichts: ' + error.message);
     }
 };
 
@@ -83,7 +83,7 @@ function formatTime(totalSeconds) {
  */
 function renderProgressChart(historyItems) {
     if (!elements.progressChart || typeof Chart === 'undefined') {
-        console.warn('Елемент canvas для графіка не знайдено або бібліотека Chart.js не завантажена.');
+        console.warn('Canvas-Element für das Diagramm nicht gefunden oder Chart.js-Bibliothek nicht geladen.');
         return;
     }
 
@@ -116,7 +116,7 @@ function renderProgressChart(historyItems) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Середній % правильних відповідей',
+                label: 'Durchschnittlicher Prozentsatz richtiger Antworten',
                 data: data,
                 fill: true,
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -156,13 +156,13 @@ function renderHistory(historyItems) {
 
     if (historyItems.length === 0) {
         historyHtml = `<div class="p-10 text-center bg-yellow-50 border-2 border-yellow-200 text-yellow-800 rounded-2xl shadow-inner">
-            <p class="text-xl font-semibold mb-2">Немає результатів 😔</p>
-            <p class="text-gray-600">Ви ще не завершили жодного тесту або не знайдено результатів за обраними фільтрами.</p>
+            <p class="text-xl font-semibold mb-2">Keine Ergebnisse 😔</p>
+            <p class="text-gray-600">Sie haben noch keinen Test abgeschlossen oder es wurden keine Ergebnisse für die ausgewählten Filter gefunden.</p>
         </div>`;
     } else {
         historyItems.forEach((item) => {
             let dateObject = null;
-            let dateString = 'Невідома дата';
+            let dateString = 'Unbekanntes Datum';
 
             // --- Надійне визначення дати ---
             if (item.timestamp) {
@@ -176,7 +176,7 @@ function renderHistory(historyItems) {
             }
 
             if (dateObject instanceof Date && !isNaN(dateObject)) {
-                dateString = dateObject.toLocaleString('uk-UA', {
+                dateString = dateObject.toLocaleString('de-DE', {
                     year: 'numeric', month: 'short', day: 'numeric',
                     hour: '2-digit', minute: '2-digit' // Зменшено деталізацію до хвилин для компактності
                 });
@@ -191,7 +191,7 @@ function renderHistory(historyItems) {
 
             const borderClass = isPassed ? 'border-green-500' : 'border-red-500';
             const scoreBgClass = isPassed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-            const scoreText = isPassed ? 'Пройдено' : 'Не пройдено';
+            const scoreText = isPassed ? 'Bestanden' : 'Nicht bestanden';
             const scoreIcon = isPassed ? '✅' : '❌';
 
 
@@ -201,8 +201,8 @@ function renderHistory(historyItems) {
                     
                     <div class="flex-1 min-w-0 pr-4"> 
                         
-                        <h3 class="text-lg font-bold text-blue-800 truncate mb-1" title="${item.testTitle || 'Невідомий тест'}">
-                            ${item.testTitle || 'Невідомий тест'}
+                        <h3 class="text-lg font-bold text-blue-800 truncate mb-1" title="${item.testTitle || 'Unbekannter Test'}">
+                            ${item.testTitle || 'Unbekannter Test'}
                         </h3>
                         
                         <div class="flex flex-wrap items-center text-sm text-gray-600 gap-x-3 gap-y-1">
@@ -228,11 +228,11 @@ function renderHistory(historyItems) {
                     <div class="flex flex-col gap-2 ml-4">
                         <a href="results-page.html?resultId=${item.id}" 
                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md text-center transition duration-200 w-24">
-                           Звіт
+                           Bericht
                         </a>
                         <button onclick="deleteReport('${item.id}')"
                                 class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md transition duration-200 w-24">
-                            Видалити
+                            Löschen
                         </button>
                     </div>
                 </div>`;
@@ -257,7 +257,7 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          Завантаження історії проходжень...
+          Lade Verlaufsdaten...
         </div>`;
     elements.historyListContainer.innerHTML = loadingHtml;
 
@@ -311,7 +311,7 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
         renderProgressChart(historyItems);
     }, (error) => {
         console.error('Error fetching history from Firestore:', error);
-        elements.historyListContainer.innerHTML = `<div class=\"p-10 text-center text-red-600 bg-red-100 rounded-2xl shadow-inner border-l-4 border-red-500\">Помилка завантаження історії: ${error.message}</div>`;
+        elements.historyListContainer.innerHTML = `<div class=\"p-10 text-center text-red-600 bg-red-100 rounded-2xl shadow-inner border-l-4 border-red-500\">Fehler beim Laden des Verlaufs: ${error.message}</div>`;
     });
 }
 
@@ -319,8 +319,8 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Ініціалізація Flatpickr (перевірка наявності для уникнення помилок)
     if (typeof flatpickr !== 'undefined') {
-        flatpickr('#start-date', { dateFormat: 'Y-m-d', locale: 'uk', allowInput: true, placeholder: "Оберіть початкову дату" });
-        flatpickr('#end-date', { dateFormat: 'Y-m-d', locale: 'uk', allowInput: true, placeholder: "Оберіть кінцеву дату" });
+        flatpickr('#start-date', { dateFormat: 'Y-m-d', locale: 'de', allowInput: true, placeholder: "Startdatum wählen" });
+        flatpickr('#end-date', { dateFormat: 'Y-m-d', locale: 'de', allowInput: true, placeholder: "Enddatum wählen" });
     }
 
     // 2. Завантаження даних

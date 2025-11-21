@@ -67,26 +67,26 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
             class="btn-run bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
             data-test-id="${test.test_id}"
         >
-            ▶️ Запустити
+            ▶️ Starten
         </button>
         <button 
             class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
             data-test-id="${test.test_id}"
         >
-            ✏️ Редагувати
+            ✏️ Bearbeiten
         </button>
         <button 
             class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
             data-test-id="${test.test_id}" ${window.userRole !== 'admin' ? 'hidden' : ''}
         >
-            ⬇️ Скачати
+            ⬇️ Herunterladen
         </button>
         <button 
             class="btn-delete bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
             data-test-id="${test.test_id}"
             data-test-title="${test.title}"
         >
-            🗑️ Видалити
+            🗑️ Löschen
         </button>
     `;
     
@@ -95,15 +95,15 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
             <div>
                 <h4 class="text-xl font-semibold text-gray-800">${test.title}</h4>
                 <p class="text-sm text-gray-500 mt-1">
-                    Питань: ${test.questions_total} | Хв: ${test.duration_minutes} | Прохідний бал: ${test.passing_score_points}
+                    Fragen: ${test.questions_total} | Min: ${test.duration_minutes} | Bestehensgrenze: ${test.passing_score_points}
                 </p>
                 <p class="text-xs text-gray-400 mt-1">ID: ${test.test_id}</p>
                 <div class="mt-2 text-xs text-gray-500">
                     <span class="inline-block bg-gray-200 rounded-full px-2 py-1">
-                        Проходжень: <strong>${stats.completions}</strong>
+                        Absolviert: <strong>${stats.completions}</strong>
                     </span>
                     <span class="inline-block bg-gray-200 rounded-full px-2 py-1 ml-2">
-                        Середній бал: <strong>${stats.avgScore.toFixed(1)}%</strong>
+                        Durchschnittsnote: <strong>${stats.avgScore.toFixed(1)}%</strong>
                     </span>
                 </div>
             </div>
@@ -142,11 +142,11 @@ async function loadAvailableTests() {
                 }];
                 renderAllTests();
             } else {
-                elements.testListContainer.innerHTML = `<div class="p-10 text-center text-yellow-600 bg-yellow-100 rounded-lg">Призначений для вас тестовий іспит (ID: ${assignedTestId}) не знайдено.</div>`;
+                elements.testListContainer.innerHTML = `<div class="p-10 text-center text-yellow-600 bg-yellow-100 rounded-lg">Der Ihnen zugewiesene Test (ID: ${assignedTestId}) wurde nicht gefunden.</div>`;
             }
         } catch (error) {
             console.error("Error fetching demo test:", error);
-            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження демо-тесту: ${error.message}</div>`;
+            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler beim Laden des Demo-Tests: ${error.message}</div>`;
         }
         return; // Виходимо, щоб не завантажувати інші тести
     }
@@ -186,7 +186,7 @@ async function loadAvailableTests() {
     }, (error) => {
         console.error("Error fetching tests from Firestore:", error);
         if (elements.testListContainer) {
-            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження тестів: ${error.message}</div>`;
+            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler beim Laden der Tests: ${error.message}</div>`;
         }
     });
 }
@@ -206,7 +206,7 @@ function renderAllTests() {
     if (allTests.length === 0) {
         elements.testListContainer.innerHTML = `
             <div class="text-center p-8 bg-white rounded-xl shadow text-gray-500">
-                Тестів не знайдено. Будь ласка, створіть новий тест.
+                Keine Tests gefunden. Bitte erstellen Sie einen neuen Test.
             </div>
         `;
     } else {
@@ -248,7 +248,7 @@ function attachTestActionListeners() {
         button.addEventListener('click', (e) => {
             const testId = e.currentTarget.dataset.testId;
             const testTitle = e.currentTarget.dataset.testTitle;
-            if (confirm(`Ви впевнені, що хочете видалити тест "${testTitle}"?`)) {
+            if (confirm(`Sind Sie sicher, dass Sie den Test "${testTitle}" löschen möchten?`)) {
                 deleteTestFromFirestore(testId);
             }
         });
@@ -274,11 +274,11 @@ async function downloadTestFromFirestore(testId) {
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         } else {
-            alert('Помилка: Тест для завантаження не знайдено.');
+            alert('Fehler: Test zum Herunterladen nicht gefunden.');
         }
     } catch (error) {
         console.error("Error downloading test for JSON export:", error);
-        alert(`Помилка завантаження тесту: ${error.message}`);
+        alert(`Fehler beim Herunterladen des Tests: ${error.message}`);
     }
 }
 
@@ -330,13 +330,13 @@ async function loadTest(testId) {
         } else {
             console.error("Test document not found:", testId);
             if (elements.questionsContainer) {
-                elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка: Тест з ID ${testId} не знайдено.</div>`;
+                elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler: Test mit ID ${testId} nicht gefunden.</div>`;
             }
         }
     } catch (error) {
         console.error("Error loading test from Firestore:", error);
         if (elements.questionsContainer) {
-            elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження тесту: ${error.message}</div>`;
+            elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler beim Laden des Tests: ${error.message}</div>`;
         }
     }
 }
@@ -482,7 +482,7 @@ function renderExercise(index) {
                 <div class="my-4">
                     <audio controls class="w-full">
                         <source src="${audio.url}" type="audio/mpeg">
-                        Ваш браузер не підтримує аудіо елемент.
+                        Ihr Browser unterstützt das Audio-Element nicht.
                     </audio>
                 </div>
             `).join('');
@@ -492,13 +492,13 @@ function renderExercise(index) {
         if (exercise.stimuli?.images && exercise.stimuli.images.length > 0) {
             mediaHtml += exercise.stimuli.images.map(image => `
                 <div class="my-4">
-                    <img src="${image.url}" alt="Зображення до завдання" class="max-w-full h-auto rounded-lg shadow-md mx-auto">
+                    <img src="${image.url}" alt="Bild zur Aufgabe" class="max-w-full h-auto rounded-lg shadow-md mx-auto">
                 </div>
             `).join('');
         }
 
         elements.stimulusText.innerHTML = `
-            <div class="text-sm font-semibold text-gray-600 mb-2">Інструкція до частини (${exercise.teil_name || 'N/A'}):</div>
+            <div class="text-sm font-semibold text-gray-600 mb-2">Anweisung zum Teil (${exercise.teil_name || 'N/A'}):</div>
             <p class="mb-4 text-blue-800 italic">${exercise.teil_text || ''}</p>
             ${mediaHtml}
             ${(exercise.stimuli?.texts || []).map(text => `<div class="border-l-4 border-gray-200 pl-4 bg-gray-50 p-3 rounded-lg text-gray-700 whitespace-pre-wrap mt-4">${text.content}</div>`).join('')}
@@ -514,7 +514,7 @@ function renderExercise(index) {
                 Teil: <span class="font-semibold text-gray-700">${exercise.teil_name || 'N/A'}</span>
             </div>
             <p class="text-lg font-bold text-gray-800 mb-4">
-                Вправа ${index + 1} з ${totalExercises}:
+                Übung ${index + 1} von ${totalExercises}:
                 <span class="font-normal text-blue-600">${exercise.text}</span>
             </p>
             <div class="space-y-3">
@@ -527,7 +527,7 @@ function renderExercise(index) {
                 id="ex-${exercise.id}-text-input" 
                 class="w-full p-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
                 rows="6" 
-                placeholder="Введіть вашу відповідь тут..."
+                placeholder="Geben Sie hier Ihre Antwort ein..."
                 oninput="handleAnswer('${exercise.id}', this.value)"
             >${currentAnswer || ''}</textarea>
         `;
@@ -550,7 +550,7 @@ function renderExercise(index) {
         });
     } else {
         // Якщо варіанти відповідей відсутні, показуємо помилку
-        exerciseHtml += `<div class="text-red-500 bg-red-100 p-4 rounded-lg">Помилка: для цієї вправи не знайдено варіантів відповідей або не вказано тип.</div>`;
+        exerciseHtml += `<div class="text-red-500 bg-red-100 p-4 rounded-lg">Fehler: Für diese Übung wurden keine Antwortoptionen gefunden oder der Typ wurde nicht angegeben.</div>`;
     }
     
     exerciseHtml += `
@@ -565,7 +565,7 @@ function renderExercise(index) {
     // --- Оновлення навігації та прогресу ---
     if (elements.prevBtn) elements.prevBtn.disabled = index === 0;
     if (elements.nextBtn) elements.nextBtn.disabled = index === totalExercises - 1;
-    if (elements.finishBtn) elements.finishBtn.textContent = index === totalExercises - 1 ? 'Завершити Тест' : 'Перейти до завершення';
+    if (elements.finishBtn) elements.finishBtn.textContent = index === totalExercises - 1 ? 'Test beenden' : 'Zum Abschluss';
     
     updateProgressBar(index, totalExercises);
 }
@@ -677,7 +677,7 @@ async function finishTest(isTimedOut) {
     // Disable finish button and show loading
     if (elements.finishBtn) {
         elements.finishBtn.disabled = true;
-        elements.finishBtn.textContent = 'Обробка відповідей...';
+        elements.finishBtn.textContent = 'Antworten werden verarbeitet...';
         elements.finishBtn.classList.add('opacity-50', 'cursor-not-allowed');
     }
     
@@ -725,15 +725,15 @@ async function finishTest(isTimedOut) {
             // For text_input, correctness is determined by AI, so we don't count it here
             // Push a promise to get AI explanation
             aiExplanationPromises.push(
-                getAIExplanation(ex.text, userAnswer || '', ex.expected_answer_text || '', ex.ai_instructions || '')
+                getAIExplanation(ex.task_text || ex.text, userAnswer || '', ex.expected_answer_text || '', ex.ai_instructions || '')
                     .then(aiResponse => {
                         aiExplanationsMap.set(ex.id, aiResponse);
                         return { exerciseId: ex.id, explanation: aiResponse };
                     })
                     .catch(error => {
                         console.error(`Error getting AI explanation for exercise ${ex.id}:`, error);
-                        aiExplanationsMap.set(ex.id, "Помилка отримання пояснення від ШІ.");
-                        return { exerciseId: ex.id, explanation: "Помилка отримання пояснення від ШІ." };
+                        aiExplanationsMap.set(ex.id, "Fehler beim Abrufen der Erklärung von der KI.");
+                        return { exerciseId: ex.id, explanation: "Fehler beim Abrufen der Erklärung von der KI." };
                     })
             );
             // Set isCorrect to false for now, AI will provide feedback
@@ -754,7 +754,7 @@ async function finishTest(isTimedOut) {
     // Wait for all AI explanations to complete
     if (aiExplanationPromises.length > 0) {
         if (elements.finishBtn) {
-            elements.finishBtn.textContent = 'Очікування ШІ...';
+            elements.finishBtn.textContent = 'Warte auf KI...';
         }
         await Promise.all(aiExplanationPromises);
     }
@@ -765,13 +765,13 @@ async function finishTest(isTimedOut) {
         if (result.type === 'text_input') {
             // The AI response is a string. We'll use it as the explanation.
             const aiExplanation = aiExplanationsMap.get(result.exerciseId);
-            finalResult.explanation = aiExplanation || "Пояснення від ШІ не було отримано.";
+            finalResult.explanation = aiExplanation || "Erklärung von der KI nicht erhalten.";
             // We cannot reliably determine correctness from the text, so we leave it as false
             // to ensure it appears in the "incorrect" list for review.
             finalResult.isCorrect = false;
         } else {
             const originalExercise = flatExercises.find(ex => ex.id === result.exerciseId);
-            finalResult.explanation = result.explanation || originalExercise.explanation || 'Пояснення відсутнє.';
+            finalResult.explanation = result.explanation || originalExercise.explanation || 'Erklärung nicht vorhanden.';
         }
         return finalResult;
     });
@@ -794,7 +794,7 @@ async function finishTest(isTimedOut) {
     resultData = replaceUndefinedWithNull(resultData);
 
     try {
-        if (!window.db || !window.userId) throw new Error("Firebase або User ID недоступні.");
+        if (!window.db || !window.userId) throw new Error("Firebase oder Benutzer-ID nicht verfügbar.");
 
         // 1. Зберігаємо детальний результат для користувача
         const resultsCollectionRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
@@ -818,7 +818,7 @@ async function finishTest(isTimedOut) {
 
     } catch (error) {
         console.error("Помилка збереження результатів у Firestore:", error);
-        alert(`Помилка збереження результатів. Вони не будуть збережені: ${error.message}`);
+        alert(`Fehler beim Speichern der Ergebnisse. Sie werden nicht gespeichert: ${error.message}`);
         // Все одно переходимо на сторінку результатів, використовуючи локальне сховище
         localStorage.setItem('b2_last_result_data', JSON.stringify(resultData));
         window.location.href = 'results-page.html';
@@ -826,7 +826,7 @@ async function finishTest(isTimedOut) {
         // Re-enable button and reset text in case of error
         if (elements.finishBtn) {
             elements.finishBtn.disabled = false;
-            elements.finishBtn.textContent = 'Завершити Тест';
+            elements.finishBtn.textContent = 'Test beenden';
             elements.finishBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
@@ -903,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             if (elements.questionsContainer) {
-                 elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Не знайдено тест для запуску. Поверніться на головну сторінку.</div>`;
+                 elements.questionsContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Kein Test zum Starten gefunden. Bitte kehren Sie zur Hauptseite zurück.</div>`;
             }
         }
         
@@ -948,12 +948,12 @@ async function handleJsonUpload(event) {
         try {
             const json = JSON.parse(e.target.result);
             if (!json.test_id || !json.title) {
-                alertBox('error', 'Недійсний формат JSON: відсутні test_id або title.');
+                alertBox('error', 'Ungültiges JSON-Format: test_id oder title fehlt.');
                 return;
             }
 
             if (!window.db || !window.userId) {
-                alertBox('error', 'Firebase не готовий. Неможливо зберегти тест.');
+                alertBox('error', 'Firebase ist nicht bereit. Test kann nicht gespeichert werden.');
                 return;
             }
 
@@ -964,7 +964,7 @@ async function handleJsonUpload(event) {
             const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testToSave.test_id);
             await setDoc(docRef, testToSave);
 
-            alertBox('success', `Тест "${testToSave.title}" успішно завантажено у Firebase!`);
+            alertBox('success', `Test "${testToSave.title}" erfolgreich in Firebase hochgeladen!`);
             // Список оновиться автоматично завдяки onSnapshot
 
         } catch (error) {

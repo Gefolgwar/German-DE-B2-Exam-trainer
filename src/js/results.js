@@ -39,19 +39,19 @@ function generateExerciseHtml({ q, originalIndex }) {
     // Знаходимо блок і частину, до якої належить вправа
     const block = currentTestSnapshot.blocks.find(b => b.teils.some(t => t.exercises.some(ex => ex.id === q.id)));
     const teil = block.teils.find(t => t.exercises.some(ex => ex.id === q.id));
-    const blockTitle = block ? block.title : 'Невідомий блок';
-    const teilTitle = teil ? teil.name : 'Невідома частина';
+    const blockTitle = block ? block.title : 'Unbekannter Block';
+    const teilTitle = teil ? teil.name : 'Unbekannter Teil';
 
     const isCorrect = detailedResult.isCorrect;
     const userAnswer = detailedResult.userAnswer;
     
     // For AI-checked exercises, the explanation comes *only* from the detailedResult.
     // For other types, it can fall back to the one stored in the test snapshot.
-    let explanation = 'Пояснення відсутнє.';
+    let explanation = 'Erklärung nicht vorhanden.';
     if (q.type === 'text_input') {
-        explanation = detailedResult.explanation || 'Пояснення від ШІ не було отримано.';
+        explanation = detailedResult.explanation || 'Erklärung von der KI nicht erhalten.';
     } else {
-        explanation = detailedResult.explanation || q.explanation || 'Пояснення відсутнє.';
+        explanation = detailedResult.explanation || q.explanation || 'Erklärung nicht vorhanden.';
     }
 
     const exerciseTime = currentResultData.exerciseTimes[q.id] ? currentResultData.exerciseTimes[q.id].timeSpent / 1000 : 0;
@@ -62,10 +62,10 @@ function generateExerciseHtml({ q, originalIndex }) {
 
     if (q.type === 'single_choice') {
         statusText = isCorrect
-            ? "(Правильно)"
+            ? "(Richtig)"
             : userAnswer === null || userAnswer === undefined
-            ? "(Помилка - нічого не обрано)"
-            : "(Помилка)";
+            ? "(Fehler - nichts ausgewählt)"
+            : "(Fehler)";
 
         q.options.forEach((option, optionIndex) => {
             let optionClass = 'text-gray-700';
@@ -83,11 +83,11 @@ function generateExerciseHtml({ q, originalIndex }) {
             `;
         });
     } else if (q.type === 'text_input') {
-        statusText = "(Перевірено ШІ)";
+        statusText = "(Von KI geprüft)";
         exerciseContentHtml = `
             <div class="mb-4">
-                <p class="font-semibold text-gray-700 mb-1">Ваша відповідь:</p>
-                <div class="p-3 bg-blue-50 rounded-lg border border-blue-200 whitespace-pre-wrap">${userAnswer || 'Відповідь відсутня.'}</div>
+                <p class="font-semibold text-gray-700 mb-1">Ihre Antwort:</p>
+                <div class="p-3 bg-blue-50 rounded-lg border border-blue-200 whitespace-pre-wrap">${userAnswer || 'Antwort fehlt.'}</div>
             </div>
         `;
     }
@@ -96,14 +96,14 @@ function generateExerciseHtml({ q, originalIndex }) {
         <div class="bg-white p-6 rounded-xl shadow-md border-l-4 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
             <div class="flex justify-between items-center mb-4">
                  <h4 class="text-xl font-bold text-gray-800">
-                    Вправа ${originalIndex + 1} <span class="text-base font-normal text-gray-500">(${blockTitle} / ${teilTitle})</span>
+                    Übung ${originalIndex + 1} <span class="text-base font-normal text-gray-500">(${blockTitle} / ${teilTitle})</span>
                     <span class="text-sm font-normal ml-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}">
                         ${statusText}
                     </span>
                 </h4>
                 <div class="text-right">
-                    <p class="font-mono text-sm">Час: ${formatTime(exerciseTime)}</p>
-                    <p class="font-bold text-sm">${exercisePoints}/${q.points} балів</p>
+                    <p class="font-mono text-sm">Zeit: ${formatTime(exerciseTime)}</p>
+                    <p class="font-bold text-sm">${exercisePoints}/${q.points} Punkte</p>
                 </div>
             </div>
             
@@ -114,7 +114,7 @@ function generateExerciseHtml({ q, originalIndex }) {
             </div>
 
             <div class="mt-4 p-3 bg-gray-100 rounded-lg">
-                <p class="font-semibold text-gray-700 mb-1">Пояснення:</p>
+                <p class="font-semibold text-gray-700 mb-1">Erklärung:</p>
                 <p class="text-sm text-gray-600 whitespace-pre-wrap">${explanation}</p>
             </div>
         </div>
@@ -154,12 +154,12 @@ async function loadResultData(resultId) {
                 currentTestSnapshot = currentResultData.testSnapshot;
                 renderSummary();
             } else {
-                throw new Error(`Результат з ID ${resultId} не знайдено.`);
+                throw new Error(`Ergebnis mit ID ${resultId} nicht gefunden.`);
             }
         }
     } catch (error) {
         console.error("Error loading result data:", error);
-        elements.detailedReportContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження результатів: ${error.message}</div>`;
+        elements.detailedReportContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler beim Laden der Ergebnisse: ${error.message}</div>`;
     }
 }
 
@@ -173,24 +173,24 @@ function renderSummary() {
     const { correctPoints, totalExercises, timeSpentSeconds, passingScore, detailedResults, testTitle, timestamp, blockTimes, teilTimes, exerciseTimes } = currentResultData;
     const percent = totalExercises > 0 ? ((correctPoints / totalExercises) * 100).toFixed(1) : 0;
     const incorrectCount = totalExercises - correctPoints;
-    const overallStatus = correctPoints >= passingScore ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО';
+    const overallStatus = correctPoints >= passingScore ? 'BESTANDEN' : 'NICHT BESTANDEN';
     const formattedDate = new Date(timestamp).toLocaleString('uk-UA');
     
     elements.testSummaryTitle.innerHTML = `${testTitle} <span class="block text-lg font-normal text-gray-500 mt-1">${formattedDate}</span>`;
-    elements.resultPoints.innerHTML = `${correctPoints}/${totalExercises} <span class="text-xl text-gray-500">(Загальний прохідний: ${passingScore})</span> <span class="block text-2xl mt-2 ${overallStatus === 'ПРОЙДЕНО' ? 'text-green-600' : 'text-red-600'}">${overallStatus}</span>`;
+    elements.resultPoints.innerHTML = `${correctPoints}/${totalExercises} <span class="text-xl text-gray-500">(Bestehensgrenze: ${passingScore})</span> <span class="block text-2xl mt-2 ${overallStatus === 'BESTANDEN' ? 'text-green-600' : 'text-red-600'}">${overallStatus}</span>`;
     elements.resultPercent.textContent = `${percent}%`;
     elements.resultTime.textContent = formatTime(timeSpentSeconds);
     elements.resultIncorrect.textContent = incorrectCount;
-    elements.resultIdDisplay.textContent = `ID Користувача: ${window.userId}`;
+    elements.resultIdDisplay.textContent = `Benutzer-ID: ${window.userId}`;
 
     // --- Статистика за рівнями ---
     let statsHtml = `
-        <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">Статистика за рівнями</h3>
+        <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">Statistik nach Niveaus</h3>
         <div class="bg-white p-4 rounded-xl shadow-md">
             <div class="grid grid-cols-3 gap-4 font-bold text-gray-700 border-b pb-2 mb-2">
-                <div>Назва</div>
-                <div class="text-center">Час</div>
-                <div class="text-right">Бали</div>
+                <div>Name</div>
+                <div class="text-center">Zeit</div>
+                <div class="text-right">Punkte</div>
             </div>
     `;
 
@@ -218,7 +218,7 @@ function renderSummary() {
 
         statsHtml += `
             <div class="grid grid-cols-3 gap-4 items-center py-2 border-b border-gray-200">
-                <div class="font-bold text-blue-700">Блок: ${block.title}</div>
+                <div class="font-bold text-blue-700">Block: ${block.title}</div>
                 <div class="text-center font-mono">${formatTime(blockTime)} / ${formatTime(block.time * 60)}</div>
                 <div class="text-right font-bold">${blockPoints}/${blockMaxPoints}</div>
             </div>
@@ -239,7 +239,7 @@ function renderSummary() {
 
             statsHtml += `
                 <div class="grid grid-cols-3 gap-4 items-center py-1 pl-4 border-l-2 border-blue-100">
-                    <div class="text-blue-600">Частина: ${teil.name}</div>
+                    <div class="text-blue-600">Teil: ${teil.name}</div>
                     <div class="text-center font-mono">${formatTime(teilTime)}</div>
                     <div class="text-right font-semibold">${teilPoints}/${teilMaxPoints}</div>
                 </div>
@@ -253,7 +253,7 @@ function renderSummary() {
                 
                 statsHtml += `
                     <div class="grid grid-cols-3 gap-4 items-center py-1 pl-8 text-sm text-gray-700">
-                        <div>Вправа №${exerciseCounter}</div>
+                        <div>Übung Nr.${exerciseCounter}</div>
                         <div class="text-center font-mono">${formatTime(exTime)}</div>
                         <div class="text-right">${exPoints}/${ex.points}</div>
                     </div>
@@ -278,8 +278,8 @@ function renderSummary() {
             });
     
         let reportTitle = incorrectExercises.length > 0 
-            ? `Детальний Звіт про ${incorrectExercises.length} Помилок` 
-            : '🎉 Вітаємо! Всі відповіді правильні.';
+            ? `Detaillierter Bericht über ${incorrectExercises.length} Fehler` 
+            : '🎉 Herzlichen Glückwunsch! Alle Antworten sind richtig.';
     
         let currentReportList = incorrectExercises;
         
@@ -290,7 +290,7 @@ function renderSummary() {
         let isReviewingAll = false;
         
         if (elements.reviewLink) {
-            elements.reviewLink.textContent = incorrectExercises.length > 0 ? '🔍 Переглянути Усі Вправи' : '🔍 Переглянути Усі Вправи';
+            elements.reviewLink.textContent = incorrectExercises.length > 0 ? '🔍 Alle Übungen ansehen' : '🔍 Alle Übungen ansehen';
     
             elements.reviewLink.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -299,13 +299,13 @@ function renderSummary() {
                 if (isReviewingAll) {
                     // Показуємо всі питання
                     currentReportList = flatExercises.map((q, index) => ({ q, originalIndex: index }));
-                    reportTitle = `Детальний Звіт: Усі ${totalExercises} Вправ`;
-                    elements.reviewLink.textContent = '❌ Приховати Правильні Відповіді';
+                    reportTitle = `Detaillierter Bericht: Alle ${totalExercises} Übungen`;
+                    elements.reviewLink.textContent = '❌ Richtige Antworten ausblenden';
                 } else {
                     // Показуємо лише помилки
                     currentReportList = incorrectExercises;
-                    reportTitle = incorrectExercises.length > 0 ? `Детальний Звіт про ${incorrectExercises.length} Помилок` : '🎉 Вітаємо! Всі відповіді правильні.';
-                    elements.reviewLink.textContent = '🔍 Переглянути Усі Вправи';
+                    reportTitle = incorrectExercises.length > 0 ? `Detaillierter Bericht über ${incorrectExercises.length} Fehler` : '🎉 Herzlichen Glückwunsch! Alle Antworten sind richtig.';
+                    elements.reviewLink.textContent = '🔍 Alle Übungen ansehen';
                 }
                 
                 elements.detailedReportContainer.innerHTML = `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` +

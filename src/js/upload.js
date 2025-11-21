@@ -65,43 +65,44 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
     const correctIndex = exerciseData.correct_answer_index;
     const explanation = exerciseData.explanation || "";
     const expectedAnswerText = exerciseData.expected_answer_text || ""; // New field for text_input type
+    const taskText = exerciseData.task_text || ""; // Нове поле для завдання
     const points = exerciseData.points || 0;
     
     return `
         <div class="exercise-item bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4" data-exercise-id="${exId}" data-exercise-type="${exerciseType}">
             <div class="flex justify-between items-center mb-3 border-b pb-2">
-                <h5 class="text-lg font-semibold text-gray-700">Вправа ${exerciseIndex}</h5>
+                <h5 class="text-lg font-semibold text-gray-700">Übung ${exerciseIndex}</h5>
                 <button type="button" onclick="window.removeElement(this.closest('.exercise-item'))" class="text-red-500 hover:text-red-700 transition">
-                    ❌ Видалити Вправу
+                    ❌ Übung entfernen
                 </button>
             </div>
 
             <input type="hidden" name="exercise_id" value="${exId}">
 
             <div class="space-y-2 mb-4">
-                <label class="block text-gray-700 font-medium">Текст Вправи:</label>
+                <label class="block text-gray-700 font-medium">Übungstext:</label>
                 <textarea name="exercise_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${exerciseText}</textarea>
             </div>
 
             <div class="space-y-2 mb-4">
-                <label class="block text-gray-700 font-medium">Бали за вправу:</label>
+                <label class="block text-gray-700 font-medium">Punkte für die Übung:</label>
                 <input type="number" name="exercise_points" class="w-full p-2 border rounded-lg" value="${points}" min="0" required>
             </div>
 
             <fieldset class="border p-4 rounded-lg space-y-4">
-                <legend class="text-lg font-semibold text-gray-700 px-2">Тексти / Стимули</legend>
+                <legend class="text-lg font-semibold text-gray-700 px-2">Texte / Stimuli</legend>
                 <div class="texts-container space-y-2">
                     ${(exerciseData.stimuli?.texts || [{ id: 'Текст 1', content: '' }]).map((text, idx) => `
                         <div class="text-stimulus-item space-y-1">
-                            <label class="block text-sm font-medium text-gray-600">Назва Стимулу ${idx + 1} (${text.id}):</label>
-                            <textarea name="stimulus_content" rows="4" data-stimulus-id="${text.id}" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Введіть повний текст для читання">${text.content}</textarea>
+                            <label class="block text-sm font-medium text-gray-600">Stimulus-Name ${idx + 1} (${text.id}):</label>
+                            <textarea name="stimulus_content" rows="4" data-stimulus-id="${text.id}" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Geben Sie den vollständigen Lesetext ein">${text.content}</textarea>
                         </div>
                     `).join('')}
                 </div>
             </fieldset>
 
             <fieldset class="border p-4 rounded-lg space-y-2">
-                <legend class="text-lg font-semibold text-gray-700 px-2">Медіа-Стимули (аудіо/зображення)</legend>
+                <legend class="text-lg font-semibold text-gray-700 px-2">Medien-Stimuli (Audio/Bild)</legend>
                 <div class="audios-container space-y-2">
                      ${(exerciseData.stimuli?.audios || []).map(audio => `
                         <div class="media-stimulus-item flex items-center space-x-2">
@@ -109,7 +110,7 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
                             <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
                         </div>`).join('')}
                 </div>
-                <button type="button" onclick="addMediaInput(this, 'audio')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Аудіо URL</button>
+                <button type="button" onclick="addMediaInput(this, 'audio')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Audio-URL hinzufügen</button>
                 
                 <div class="images-container space-y-2 mt-4">
                      ${(exerciseData.stimuli?.images || []).map(image => `
@@ -118,44 +119,48 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
                             <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
                         </div>`).join('')}
                 </div>
-                <button type="button" onclick="addMediaInput(this, 'image')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Зображення URL</button>
+                <button type="button" onclick="addMediaInput(this, 'image')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Bild-URL hinzufügen</button>
             </fieldset>
 
             <div class="space-y-2 mb-4">
-                <label class="block text-gray-700 font-medium">Тип Вправи:</label>
+                <label class="block text-gray-700 font-medium">Übungstyp:</label>
                 <select name="exercise_type" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" onchange="window.exerciseTypeChanged(this.closest('.exercise-item'))">
-                    <option value="single_choice" ${exerciseType === "single_choice" ? "selected" : ""}>Множинний вибір</option>
-                    <option value="text_input" ${exerciseType === "text_input" ? "selected" : ""}>Текстове поле</option>
+                    <option value="single_choice" ${exerciseType === "single_choice" ? "selected" : ""}>Multiple-Choice</option>
+                    <option value="text_input" ${exerciseType === "text_input" ? "selected" : ""}>Textfeld</option>
                 </select>
             </div>
 
             <div class="options-section" style="display: ${exerciseType === 'single_choice' ? 'block' : 'none'};">
                 <div class="options-container space-y-2 mb-4">
-                    <label class="block text-gray-700 font-medium">Варіанти Відповідей:</label>
+                    <label class="block text-gray-700 font-medium">Antwortoptionen:</label>
                     ${options.map((option, idx) => `
                         <div class="flex items-center space-x-2 option-item" data-option-index="${idx}">
                             <input type="radio" name="correct_answer_index_${exId}" value="${idx}" class="text-blue-600" ${idx === correctIndex ? 'checked' : ''}>
-                            <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Варіант ${idx + 1}" value="${option}">
+                            <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Option ${idx + 1}" value="${option}">
                             <button type="button" onclick="window.removeElement(this.parentNode)" class="text-red-500 hover:text-red-700 p-1 flex-shrink-0">❌</button>
                         </div>
                     `).join('')}
                 </div>
-                <button type="button" onclick="addOptionToExercise(this.closest('.exercise-item'))" class="text-sm text-blue-500 hover:text-blue-700 font-semibold mt-2">+ Додати Варіант Відповіді</button>
+                <button type="button" onclick="addOptionToExercise(this.closest('.exercise-item'))" class="text-sm text-blue-500 hover:text-blue-700 font-semibold mt-2">+ Antwortoption hinzufügen</button>
             </div>
 
             <div class="expected-answer-section" style="display: ${exerciseType === 'text_input' ? 'block' : 'none'};">
                 <div class="space-y-2 mb-4">
-                    <label class="block text-gray-700 font-medium">Очікувана відповідь (для перевірки ШІ):</label>
-                    <textarea name="expected_answer_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Введіть очікувану відповідь або ключові слова">${expectedAnswerText}</textarea>
+                    <label class="block text-gray-700 font-medium">Aufgabe für den Benutzer:</label>
+                    <textarea name="task_text" rows="3" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Geben Sie die vollständige Aufgabe ein, die der Benutzer sehen wird. Z.B.: 'Schreiben Sie eine E-Mail an...'">${taskText}</textarea>
                 </div>
                 <div class="space-y-2 mb-4">
-                    <label class="block text-gray-700 font-medium">Вказівки для ШІ (необов'язково):</label>
-                    <textarea name="ai_instructions" rows="3" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Наприклад: 'Оціни відповідь за граматикою та лексикою B2 рівня.'">${exerciseData.ai_instructions || ''}</textarea>
+                    <label class="block text-gray-700 font-medium">Erwartete Antwort (für KI-Prüfung):</label>
+                    <textarea name="expected_answer_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Geben Sie die erwartete Antwort oder Schlüsselwörter ein">${expectedAnswerText}</textarea>
+                </div>
+                <div class="space-y-2 mb-4">
+                    <label class="block text-gray-700 font-medium">Anweisungen für die KI (optional):</label>
+                    <textarea name="ai_instructions" rows="3" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Z.B.: 'Bewerte die Antwort nach Grammatik und Wortschatz auf B2-Niveau.'">${exerciseData.ai_instructions || ''}</textarea>
                 </div>
             </div>
 
             <div class="space-y-2">
-                <label class="block text-gray-700 font-medium">Пояснення (необов'язково):</label>
+                <label class="block text-gray-700 font-medium">Erklärung (optional):</label>
                 <textarea name="explanation" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500">${explanation}</textarea>
             </div>
         </div>
@@ -175,7 +180,7 @@ window.exerciseTypeChanged = function(exerciseElement) {
         expectedAnswerSection.style.display = 'none';
         // Ensure required for options if switching to single_choice
         optionsSection.querySelectorAll('input[name="option_text"]').forEach(input => input.required = true);
-        expectedAnswerSection.querySelector('textarea[name="expected_answer_text"]').required = false;
+        expectedAnswerSection.querySelectorAll('textarea').forEach(textarea => textarea.required = false);
     } else if (selectedType === 'text_input') {
         optionsSection.style.display = 'none';
         expectedAnswerSection.style.display = 'block';
@@ -198,7 +203,7 @@ window.addOptionToExercise = function(exerciseElement) {
     const newOptionHtml = `
         <div class="flex items-center space-x-2 option-item" data-option-index="${currentOptionCount}">
             <input type="radio" name="correct_answer_index_${exId}" value="${currentOptionCount}" class="text-blue-600">
-            <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Варіант ${currentOptionCount + 1}" value="">
+            <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Option ${currentOptionCount + 1}" value="">
             <button type="button" onclick="window.removeElement(this.parentNode)" class="text-red-500 hover:text-red-700 p-1 flex-shrink-0">❌</button>
         </div>
     `;
@@ -235,47 +240,47 @@ function createBlockCard(blockIndex, blockData = {}) {
     card.dataset.blockId = blockId;
     card.innerHTML = `
         <div class="flex justify-between items-center mb-4">
-            <h4 class="text-2xl font-bold text-gray-800">Блок ${blockIndex}</h4>
+            <h4 class="text-2xl font-bold text-gray-800">Block ${blockIndex}</h4>
             <button type="button" onclick="window.removeElement(this.closest('.block-card'))" class="text-red-600 hover:text-red-800 font-bold transition">
-                ❌ Видалити Блок
+                ❌ Block entfernen
             </button>
         </div>
 
         <input type="hidden" name="block_id" value="${blockId}">
 
         <div class="space-y-2">
-            <label class="block text-gray-700 font-semibold">Назва Блоку (напр., Lesen):</label>
-            <input type="text" name="block_title" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.title || ''}" required placeholder="Назва блоку">
+            <label class="block text-gray-700 font-semibold">Blockname (z.B. Lesen):</label>
+            <input type="text" name="block_title" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.title || ''}" required placeholder="Blockname">
         </div>
         
         <div class="space-y-2">
-            <label class="block text-gray-700 font-semibold">Інформація для Блоку:</label>
+            <label class="block text-gray-700 font-semibold">Informationen zum Block:</label>
             <textarea name="block_text" rows="3" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${blockData.text || ''}</textarea>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="space-y-2">
-                <label class="block text-gray-700 font-semibold">Час на блок (хв):</label>
+                <label class="block text-gray-700 font-semibold">Zeit für den Block (Min):</label>
                 <input type="number" name="block_time" class="block-duration-input w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.time || '10'}" min="1" required>
             </div>
             <div class="space-y-2">
-                <label class="block text-gray-700 font-semibold">Бали для проходження:</label>
+                <label class="block text-gray-700 font-semibold">Punkte zum Bestehen:</label>
                 <input type="number" name="block_points_to_pass" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.points_to_pass || '1'}" min="0" required>
             </div>
             <div class="space-y-2 bg-blue-50 p-3 rounded-lg">
-                <label class="block text-gray-700 font-semibold">Всього балів у блоці:</label>
+                <label class="block text-gray-700 font-semibold">Gesamtpunkte im Block:</label>
                 <span name="block_points_display" class="text-2xl font-bold text-blue-700 block">0</span>
             </div>
         </div>
 
         <div class="teils-list space-y-4 border-t pt-4 mt-4">
-            <h5 class="text-xl font-bold text-gray-700">Список Частин (Teils)</h5>
+            <h5 class="text-xl font-bold text-gray-700">Liste der Teile (Teils)</h5>
             ${(blockData.teils || []).map((teilData, teilIdx) => createTeilCard(blockId, teilIdx + 1, teilData).outerHTML).join('')}
         </div>
         
         <div class="mt-4 text-center">
             <button type="button" onclick="addTeilToBlock(this.closest('.block-card'))" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md text-sm">
-                ➕ Додати Частину (Teil) до Блоку
+                ➕ Teil zum Block hinzufügen
             </button>
         </div>
     `;
@@ -294,7 +299,7 @@ function createTeilCard(blockId, teilIndex, teilData = {}) {
         const dividerHtml = `
             <div class="add-exercise-divider text-center my-2">
                 <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs transition">
-                    ➕ Додати Вправу Тут
+                    ➕ Übung hier hinzufügen
                 </button>
             </div>
         `;
@@ -305,38 +310,38 @@ function createTeilCard(blockId, teilIndex, teilData = {}) {
     card.dataset.teilId = teilId;
     card.innerHTML = `
         <div class="flex justify-between items-center mb-3 border-b pb-2">
-            <h5 class="text-lg font-semibold text-gray-700">Частина (Teil) ${teilIndex}</h5>
+            <h5 class="text-lg font-semibold text-gray-700">Teil ${teilIndex}</h5>
             <button type="button" onclick="window.removeElement(this.closest('.teil-card'))" class="text-red-500 hover:text-red-700 transition">
-                ❌ Видалити Teil
+                ❌ Teil entfernen
             </button>
         </div>
 
         <input type="hidden" name="teil_id" value="${teilId}">
 
         <div class="space-y-2">
-            <label class="block text-gray-700 font-medium">Назва Teil (напр., Teil 1):</label>
+            <label class="block text-gray-700 font-medium">Teil-Name (z.B. Teil 1):</label>
             <input type="text" name="teil_name" class="w-full p-2 border rounded-lg" value="${teilData.name || ''}" required>
         </div>
         
         <div class="space-y-2">
-            <label class="block text-gray-700 font-medium">Інформація для Teil:</label>
+            <label class="block text-gray-700 font-medium">Informationen zum Teil:</label>
             <textarea name="teil_text" rows="2" class="w-full p-2 border rounded-lg">${teilData.text || ''}</textarea>
         </div>
 
         <div class="space-y-2">
-            <label class="block text-gray-700 font-medium">Бали за Teil (автоматично):</label>
+            <label class="block text-gray-700 font-medium">Punkte für den Teil (automatisch):</label>
             <span name="teil_points_display" class="text-lg font-bold text-blue-600 p-2 block">${teilData.points || '0'}</span>
             <input type="hidden" name="teil_points" value="${teilData.points || '0'}">
         </div>
 
         <div class="exercises-list border-t pt-4 mt-4">
-            <h6 class="text-md font-bold text-gray-600 border-b pb-2 mb-2">Вправи</h6>
+            <h6 class="text-md font-bold text-gray-600 border-b pb-2 mb-2">Übungen</h6>
             ${exercisesHtml}
         </div>
         
         <div class="mt-3 text-center">
             <button type="button" onclick="addExerciseToTeil(this.closest('.teil-card'))" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-4 rounded-full transition duration-150 shadow-sm text-xs">
-                ➕ Додати Вправу (в кінець)
+                ➕ Übung hinzufügen (am Ende)
             </button>
         </div>
     `;
@@ -390,7 +395,8 @@ window.addExerciseToTeil = function(teilCard) {
     const newDividerHtml = `
         <div class="add-exercise-divider text-center my-2">
             <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs">
-                ➕ Додати Вправу Тут
+                ➕ Übung hier hinzufügen
+                ➕ Übung hier hinzufügen
             </button>
         </div>
     `;
@@ -464,7 +470,7 @@ function updateAllPoints() {
                 // Оновлюємо наскрізний номер вправи
                 const exerciseTitle = exerciseItem.querySelector('h5');
                 if (exerciseTitle) {
-                    exerciseTitle.textContent = `Вправа ${exerciseCounter}`;
+                    exerciseTitle.textContent = `Übung ${exerciseCounter}`;
                 }
 
                 const pointsInput = exerciseItem.querySelector('input[name="exercise_points"]');
@@ -507,7 +513,7 @@ function serializeFormToTestObject(form) {
 
     const test = {
         test_id: form.dataset.testId || generateUniqueId(),
-        title: form.querySelector('#test-title').value.trim() || "Без назви",
+        title: form.querySelector('#test-title').value.trim() || "Unbenannter Test",
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10),
         passing_score_points: parseInt(form.querySelector('#passing-score').value, 10),
         exercises_total: 0, // Буде оновлено пізніше
@@ -545,6 +551,7 @@ function serializeFormToTestObject(form) {
                 const exerciseType = exItem.querySelector('select[name="exercise_type"]').value;
                 const exerciseText = exItem.querySelector('textarea[name="exercise_text"]').value.trim();
                 const explanation = exItem.querySelector('textarea[name="explanation"]').value.trim();
+                const taskText = exItem.querySelector('textarea[name="task_text"]').value.trim(); // Отримуємо текст завдання
                 const points = parseInt(exItem.querySelector('input[name="exercise_points"]').value, 10) || 0;
 
                 let exercise = {
@@ -552,6 +559,7 @@ function serializeFormToTestObject(form) {
                     text: exerciseText,
                     type: exerciseType,
                     points: points,
+                    task_text: taskText, // Зберігаємо текст завдання
                     explanation: explanation,
                     stimuli: {}
                 };
@@ -641,10 +649,10 @@ async function handleSubmit(event) {
     isFormDirty = false;
 
     event.preventDefault();
-    showMessage("Розпочато процес збереження...", 'success');
+    showMessage("Speichervorgang gestartet...", 'success');
 
     if (!window.db || !window.isAuthReady) {
-        showMessage("Зачекайте, поки ініціалізується Firebase...", 'error');
+        showMessage("Bitte warten, bis Firebase initialisiert ist...", 'error');
         return;
     }
 
@@ -656,29 +664,29 @@ async function handleSubmit(event) {
     }
 
     try {
-        showMessage("1/3: Збір та валідація даних з форми...", 'success');
+        showMessage("1/3: Daten aus dem Formular sammeln und validieren...", 'success');
         const testObject = serializeFormToTestObject(event.target);
         
         if (testObject.exercises_total === 0) {
-            showMessage("Будь ласка, додайте хоча б одну вправу до тесту.", 'error');
+            showMessage("Bitte fügen Sie dem Test mindestens eine Übung hinzu.", 'error');
             return;
         }
 
-        showMessage(`2/3: Дані зібрано. Знайдено ${testObject.blocks.length} блоків та ${testObject.exercises_total} вправ.`, 'success');
+        showMessage(`2/3: Daten gesammelt. ${testObject.blocks.length} Blöcke und ${testObject.exercises_total} Übungen gefunden.`, 'success');
 
         const testId = testObject.test_id;
         const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
         
-        showMessage(`3/3: Відправка даних до Firebase...`, 'success');
+        showMessage(`3/3: Daten werden an Firebase gesendet...`, 'success');
         // Зберігаємо об'єкт тесту у Firestore
         await setDoc(docRef, testObject, { merge: true });
         
         event.target.dataset.testId = testId; // Оновлюємо ID форми, якщо це був новий тест
         if (elements.pageTitle) {
-            elements.pageTitle.textContent = `Редагування Тесту: ${testObject.title}`;
+            elements.pageTitle.textContent = `Test bearbeiten: ${testObject.title}`;
         }
 
-        showMessage(`✅ Готово! Тест "${testObject.title}" успішно збережено у Firebase.`, 'success');
+        showMessage(`✅ Fertig! Test "${testObject.title}" erfolgreich in Firebase gespeichert.`, 'success');
 
         // Очищаємо localStorage, оскільки тепер використовуємо URL-параметр для редагування
         localStorage.removeItem('b2_test_to_edit'); 
@@ -690,7 +698,7 @@ async function handleSubmit(event) {
 
     } catch (error) {
         console.error("Помилка при збереженні тесту:", error);
-        showMessage(`Помилка при збереженні тесту: ${error.message}`, 'error');
+        showMessage(`Fehler beim Speichern des Tests: ${error.message}`, 'error');
     }
 }
 
@@ -723,16 +731,16 @@ async function loadTestForEditing(testId, retries = 3) {
             
             // --- Конвертація старого формату (якщо потрібно) ---
             if (testToEdit.parts && !testToEdit.blocks) {
-                showMessage("Конвертація старого формату тесту...", 'success');
+                showMessage("Altes Testformat wird konvertiert...", 'success');
                 testToEdit.blocks = testToEdit.parts.map(part => ({
                     block_id: part.part_id || generateUniqueId(),
-                    title: part.title || "Конвертований Блок",
+                    title: part.title || "Konvertierter Block",
                     text: part.instruction || '',
                     time: part.duration_minutes || 10,
                     points_to_pass: part.passing_score_points || 1,
                     teils: [{
                         teil_id: generateUniqueId(),
-                        name: part.title || "Основна частина",
+                        name: part.title || "Hauptteil",
                         text: '',
                         points: (part.questions || []).reduce((acc, q) => acc + (q.points || 1), 0),
                         exercises: (part.questions || []).map(q => ({ ...q, points: q.points || 1 }))
@@ -744,7 +752,7 @@ async function loadTestForEditing(testId, retries = 3) {
             // --- Заповнення форми ---
             elements.form.dataset.testId = testId;
             if (elements.pageTitle) {
-                elements.pageTitle.textContent = `Редагування Тесту: ${testToEdit.title || ''}`;
+                elements.pageTitle.textContent = `Test bearbeiten: ${testToEdit.title || ''}`;
             }
             document.getElementById('test-title').value = testToEdit.title || '';
             document.getElementById('duration-minutes').value = testToEdit.duration_minutes || 0;
@@ -771,10 +779,10 @@ async function loadTestForEditing(testId, retries = 3) {
             
             updateTotalDuration();
             updateAllPoints(); // Рахуємо бали після завантаження
-            showMessage(`Тест "${testToEdit.title}" завантажено для редагування.`, 'success');
+            showMessage(`Test "${testToEdit.title}" zum Bearbeiten geladen.`, 'success');
 
         } else {
-            showMessage(`Помилка: Тест з ID ${testId} не знайдено. Створюємо новий.`, 'error');
+            showMessage(`Fehler: Test mit ID ${testId} nicht gefunden. Es wird ein neuer erstellt.`, 'error');
             localStorage.removeItem('b2_test_to_edit'); 
             addBlock(); // Створюємо один порожній блок
         }
@@ -785,7 +793,7 @@ async function loadTestForEditing(testId, retries = 3) {
             return;
         }
         console.error("Error loading test from Firestore:", error);
-        showMessage(`Помилка завантаження тесту для редагування: ${error.message}`, 'error');
+        showMessage(`Fehler beim Laden des Tests zum Bearbeiten: ${error.message}`, 'error');
         addBlock(); // Створюємо порожній блок у випадку помилки
     }
 }
@@ -854,8 +862,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', (e) => {
         if (isFormDirty) {
             e.preventDefault();
-            e.returnValue = 'Changes you made may not be saved.'; // Для сумісності
-            return 'Changes you made may not be saved.';
+            e.returnValue = 'Ihre Änderungen wurden möglicherweise nicht gespeichert.'; // Для сумісності
+            return 'Ihre Änderungen wurden möglicherweise nicht gespeichert.';
         }
     });
 });
