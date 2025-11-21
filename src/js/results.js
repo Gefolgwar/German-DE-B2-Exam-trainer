@@ -44,7 +44,16 @@ function generateExerciseHtml({ q, originalIndex }) {
 
     const isCorrect = detailedResult.isCorrect;
     const userAnswer = detailedResult.userAnswer;
-    const explanation = detailedResult.explanation || q.explanation || 'Пояснення відсутнє.';
+    
+    // For AI-checked exercises, the explanation comes *only* from the detailedResult.
+    // For other types, it can fall back to the one stored in the test snapshot.
+    let explanation = 'Пояснення відсутнє.';
+    if (q.type === 'text_input') {
+        explanation = detailedResult.explanation || 'Пояснення від ШІ не було отримано.';
+    } else {
+        explanation = detailedResult.explanation || q.explanation || 'Пояснення відсутнє.';
+    }
+
     const exerciseTime = currentResultData.exerciseTimes[q.id] ? currentResultData.exerciseTimes[q.id].timeSpent / 1000 : 0;
     const exercisePoints = isCorrect ? q.points : 0;
 

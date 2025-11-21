@@ -5,25 +5,35 @@ import { geminiModel } from "../firebase/config";
  * @param {string} questionText - The text of the question.
  * @param {string} userAnswer - The user's provided answer.
  * @param {string} expectedAnswerText - The expected correct answer or key points.
+ * @param {string} [aiInstructions] - Optional additional instructions for the AI.
  * @returns {Promise<string>} - A promise that resolves with the AI's explanation.
  */
-export async function getAIExplanation(questionText, userAnswer, expectedAnswerText) {
+export async function getAIExplanation(questionText, userAnswer, expectedAnswerText, aiInstructions = '') {
+    // Цей промпт скопійовано та адаптовано з логіки indexAI.html
+    // Він більш деталізований і дає ШІ чіткіші інструкції.
     const prompt = `
-        You are an AI assistant designed to evaluate user answers for B2 German exam questions.
-        The user provided the following question and their answer. You also have the expected answer.
-        Your task is to:
-        1. Compare the user's answer with the expected answer.
-        2. Provide constructive feedback on the user's answer, highlighting strengths and weaknesses.
-        3. If the user's answer is incorrect, explain why and provide the correct information based on the expected answer.
-        4. If the user's answer is correct, confirm it and offer additional insights if possible.
-        5. Keep the explanation concise and directly related to the question and answers.
-        6. Respond in Ukrainian.
+        You are a helpful AI assistant for checking B2 German exam answers.
+        Your goal is to provide a clear, constructive, and encouraging evaluation in Ukrainian.
+
+        Analyze the user's answer based on the provided question and the expected answer key.
+
+        **Evaluation Criteria:**
+        1.  **Accuracy:** Does the user's answer match the key points in the expected answer?
+        2.  **Completeness:** Are all parts of the question answered?
+        3.  **Grammar and Vocabulary:** Briefly comment on the language level if it's relevant to the task (especially for writing tasks).
+
+        **Your response format:**
+        - Start with a clear verdict: "Правильно", "Частково правильно", or "Неправильно".
+        - Provide a concise explanation.
+        - If the answer is incorrect or partially correct, explain the mistake and provide the correct version or key information.
+        - Maintain a supportive and friendly tone.
 
         Question: "${questionText}"
         User's Answer: "${userAnswer}"
         Expected Answer: "${expectedAnswerText}"
+        ${aiInstructions ? `Additional Instructions: "${aiInstructions}"` : ''}
 
-        Please provide your evaluation and explanation:
+        Evaluation:
     `;
 
     try {

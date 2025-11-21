@@ -725,7 +725,7 @@ async function finishTest(isTimedOut) {
             // For text_input, correctness is determined by AI, so we don't count it here
             // Push a promise to get AI explanation
             aiExplanationPromises.push(
-                getAIExplanation(ex.text, userAnswer || '', ex.expected_answer_text || '')
+                getAIExplanation(ex.text, userAnswer || '', ex.expected_answer_text || '', ex.ai_instructions || '')
                     .then(aiResponse => {
                         aiExplanationsMap.set(ex.id, aiResponse);
                         return { exerciseId: ex.id, explanation: aiResponse };
@@ -761,15 +761,19 @@ async function finishTest(isTimedOut) {
 
     // Now, update detailedResults with AI explanations
     const finalDetailedResults = detailedResults.map(result => {
+        const finalResult = { ...result };
         if (result.type === 'text_input') {
-            const aiResponse = aiExplanationsMap.get(result.exerciseId) || { isCorrect: false, explanation: "Пояснення від ШІ відсутнє." };
-            result.isCorrect = aiResponse.isCorrect;
-            result.explanation = aiResponse.explanation;
+            // The AI response is a string. We'll use it as the explanation.
+            const aiExplanation = aiExplanationsMap.get(result.exerciseId);
+            finalResult.explanation = aiExplanation || "Пояснення від ШІ не було отримано.";
+            // We cannot reliably determine correctness from the text, so we leave it as false
+            // to ensure it appears in the "incorrect" list for review.
+            finalResult.isCorrect = false;
         } else {
             const originalExercise = flatExercises.find(ex => ex.id === result.exerciseId);
-            result.explanation = originalExercise.explanation;
+            finalResult.explanation = result.explanation || originalExercise.explanation || 'Пояснення відсутнє.';
         }
-        return result;
+        return finalResult;
     });
 
     let resultData = {
