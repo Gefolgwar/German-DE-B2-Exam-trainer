@@ -25,9 +25,6 @@
       }
     </style>
 
-    <!-- Конфігурація Firebase для локальної розробки -->
-    <script src="src/js/firebase-config.js"></script>
-
     <!-- Firebase SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
@@ -41,6 +38,8 @@
         getFirestore,
         setLogLevel,
         enableIndexedDbPersistence,
+        initializeFirestore,
+        persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
       // Глобальні змінні, доступні для main.js
@@ -51,11 +50,19 @@
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-app-id";
       const firebaseConfig =
-        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
-        window.firebaseConfig ||
-        (typeof __firebase_config !== "undefined"
+        typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
-          : {});
+          : {
+              apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+              authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+              projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+              storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: import.meta.env
+                .VITE_FIREBASE_MESSAGING_SENDER_ID,
+              appId: import.meta.env.VITE_FIREBASE_APP_ID,
+              measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+            };
+
       const initialAuthToken =
         typeof __initial_auth_token !== "undefined"
           ? __initial_auth_token
@@ -72,21 +79,10 @@
           }
 
           const app = initializeApp(firebaseConfig);
-          window.db = getFirestore(app);
-
-          // Вмикаємо офлайн-персистентність
-          try {
-            await enableIndexedDbPersistence(window.db);
-            console.log("Firestore persistence enabled.");
-          } catch (err) {
-            if (err.code == "failed-precondition") {
-              console.warn("Firestore persistence failed: multiple tabs open?");
-            } else if (err.code == "unimplemented") {
-              console.warn(
-                "Firestore persistence not supported in this browser."
-              );
-            }
-          }
+          // Ініціалізація Firestore з кешуванням
+          window.db = initializeFirestore(app, {
+            localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
+          });
 
           window.auth = getAuth(app);
           setLogLevel("Debug");
@@ -135,6 +131,24 @@
             class="text-xl font-mono font-extrabold text-red-600 bg-red-100 p-2 rounded-lg shadow"
           >
             --:--
+          </div>
+          <div
+            id="block-timer"
+            class="text-sm font-mono text-blue-600 bg-blue-100 p-2 rounded-lg shadow"
+          >
+            Block: --:-- / --:--
+          </div>
+          <div
+            id="teil-timer"
+            class="text-sm font-mono text-green-600 bg-green-100 p-2 rounded-lg shadow"
+          >
+            Teil: --:--
+          </div>
+          <div
+            id="exercise-timer"
+            class="text-sm font-mono text-yellow-600 bg-yellow-100 p-2 rounded-lg shadow"
+          >
+            Exercise: --:--
           </div>
         </div>
       </div>

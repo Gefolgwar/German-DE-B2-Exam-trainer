@@ -1,13 +1,17 @@
-import { collection, onSnapshot, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import { collection, onSnapshot, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, query, limit } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import { getAIExplanation } from './aiService.js'; // Import the AI service
+import { renderNavbar } from '../components/Navbar.js'; // Import the Navbar rendering function
 
 // Глобальний стан додатку (для test-page.html)
 let currentTest = null;
-let userAnswers = {}; // { questionId: selectedIndex }
-let currentQuestionIndex = 0; // Індекс питання, яке зараз відображається
-let flatQuestions = []; // Оптимізація: плоский масив питань
+let userAnswers = {}; // { exerciseId: selectedIndex }
+let currentExerciseIndex = 0; // Індекс вправи, яка зараз відображається
+let flatExercises = []; // Оптимізація: плоский масив вправ
 let timerInterval = null;
 let timeLeftSeconds = 0;
-let partTimers = {}; // { partId: startTime }
+let blockTimers = {}; // { blockId: { startTime, timeSpent, totalTime } }
+let teilTimers = {}; // { teilId: { startTime, timeSpent } }
+let exerciseTimers = {}; // { exerciseId: { startTime, timeSpent } }
 // const testDurationPlaceholder = 1500; // Це тепер береться з об'єкта тесту
 
 // --- DOM Елементи ---
@@ -23,12 +27,20 @@ const elements = {
     prevBtn: document.getElementById('prev-btn'),
     nextBtn: document.getElementById('next-btn'),
     finishBtn: document.getElementById('finish-btn'),
+    blockTimerDisplay: document.getElementById('block-timer'),
+    teilTimerDisplay: document.getElementById('teil-timer'),
+    exerciseTimerDisplay: document.getElementById('exercise-timer'),
 
     // Елементи для index.html (завантажуються лише там)
     testListContainer: document.getElementById('test-list-container'),
     uploadJsonFile: document.getElementById('upload-json-file'),
     createNewTestBtn: document.getElementById('create-new-test-btn'), 
 };
+
+/**
+ * Зберігає активну функцію відписки від onSnapshot для списку тестів.
+ */
+let unsubscribeFromTests = null;
 
 let allTests = []; // Глобальний масив для зберігання тестів та їх статистики
 let sortOrder = {
@@ -65,7 +77,7 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
         </button>
         <button 
             class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-            data-test-id="${test.test_id}"
+            data-test-id="${test.test_id}" ${window.userRole !== 'admin' ? 'hidden' : ''}
         >
             ⬇️ Скачати
         </button>
@@ -114,6 +126,32 @@ async function loadAvailableTests() {
         return;
     }
     
+    // --- ЛОГІКА ДЛЯ ДЕМО-РЕЖИМУ ---
+    if (window.userRole === 'test') {
+        // Для тестового користувача - завантажуємо обмежену кількість тестів
+        const assignedTestId = 'test-1763583666770-a5c28182ab19c8'; // Жорстко визначений ID
+        try {
+            const testDocRef = doc(window.db, `artifacts/${appId}/public/data/tests`, assignedTestId);
+            const testDoc = await getDoc(testDocRef);
+            
+            if (testDoc.exists()) {
+                allTests = [{ 
+                    ...testDoc.data(), 
+                    test_id: testDoc.id, 
+                    stats: { completions: 0, avgScore: 0 } 
+                }];
+                renderAllTests();
+            } else {
+                elements.testListContainer.innerHTML = `<div class="p-10 text-center text-yellow-600 bg-yellow-100 rounded-lg">Призначений для вас тестовий іспит (ID: ${assignedTestId}) не знайдено.</div>`;
+            }
+        } catch (error) {
+            console.error("Error fetching demo test:", error);
+            elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Помилка завантаження демо-тесту: ${error.message}</div>`;
+        }
+        return; // Виходимо, щоб не завантажувати інші тести
+    }
+    // --- КІНЕЦЬ ЛОГІКИ ДЛЯ ДЕМО-РЕЖИМУ ---
+
     // 1. Завантажуємо статистику поточного користувача
     const userResultsRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
     const statsSnapshot = await getDocs(userResultsRef);
@@ -131,7 +169,13 @@ async function loadAvailableTests() {
 
     // 2. Завантажуємо тести і додаємо до них статистику
     const testCollectionRef = collection(window.db, `artifacts/${appId}/public/data/tests`);
-    onSnapshot(testCollectionRef, (snapshot) => {
+
+    // Скасовуємо попередню підписку, якщо вона існує
+    if (unsubscribeFromTests) {
+        unsubscribeFromTests();
+    }
+
+    unsubscribeFromTests = onSnapshot(testCollectionRef, (snapshot) => {
         allTests = [];
         snapshot.forEach(doc => {
             const testData = doc.data();
@@ -281,7 +325,7 @@ async function loadTest(testId) {
             
             // Ініціалізація
             initializeTestState(currentTest);
-            renderQuestion(currentQuestionIndex);
+            renderExercise(currentExerciseIndex);
             startTimer();
         } else {
             console.error("Test document not found:", testId);
@@ -306,28 +350,42 @@ function initializeTestState(test) {
     if (elements.testTitle) elements.testTitle.textContent = `${test.title} | B2 Test`;
     if (elements.currentTestTitle) elements.currentTestTitle.textContent = test.title;
 
-    // Ініціалізуємо таймери для частин
-    partTimers = {};
-    test.parts.forEach(part => {
-        partTimers[part.part_id] = { startTime: null, timeSpent: 0 };
+    // Ініціалізуємо таймери
+    blockTimers = {};
+    teilTimers = {};
+    exerciseTimers = {};
+
+    test.blocks.forEach(block => {
+        blockTimers[block.block_id] = { startTime: null, timeSpent: 0, totalTime: block.time * 60 };
+        block.teils.forEach(teil => {
+            teilTimers[teil.teil_id] = { startTime: null, timeSpent: 0 };
+            teil.exercises.forEach(exercise => {
+                exerciseTimers[exercise.id] = { startTime: null, timeSpent: 0 };
+            });
+        });
     });
 
-    // Створюємо плоский масив питань
-    flatQuestions = [];
-    test.parts.forEach(part => {
-        part.questions.forEach(q => {
-            flatQuestions.push({
-                ...q,
-                part_id: part.part_id, // Додаємо ID частини для контексту
-                instruction: part.instruction, // Додаємо інструкцію для контексту
-                media: part.media || {}, // Зберігаємо весь об'єкт media
+    // Створюємо плоский масив вправ
+    flatExercises = [];
+    test.blocks.forEach(block => {
+        block.teils.forEach(teil => {
+            teil.exercises.forEach(ex => {
+                flatExercises.push({
+                    ...ex,
+                    teil_id: teil.teil_id,
+                    teil_name: teil.name,
+                    teil_text: teil.text, // Pass teil text as instruction
+                    block_id: block.block_id,
+                    block_name: block.title, // Use block.title instead of block.name
+                    block_time: block.time,
+                });
             });
         });
     });
     
     // Ініціалізуємо відповіді
-    userAnswers = flatQuestions.reduce((acc, q) => {
-        acc[q.id] = null; // null - відповідь не дана
+    userAnswers = flatExercises.reduce((acc, ex) => {
+        acc[ex.id] = null; // null - відповідь не дана
         return acc;
     }, {});
 
@@ -336,35 +394,82 @@ function initializeTestState(test) {
 }
 
 
-// Функція для переходу до наступного питання
-function nextQuestion() {
-    if (currentQuestionIndex < flatQuestions.length - 1) {
-        currentQuestionIndex++;
-        renderQuestion(currentQuestionIndex);
+// Функція для переходу до наступної вправи
+function nextExercise() {
+    if (currentExerciseIndex < flatExercises.length - 1) {
+        updateTimersOnNavigation(currentExerciseIndex, currentExerciseIndex + 1);
+        currentExerciseIndex++;
+        renderExercise(currentExerciseIndex);
     }
 }
 
-// Функція для переходу до попереднього питання
-function prevQuestion() {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        renderQuestion(currentQuestionIndex);
+// Функція для переходу до попередньої вправи
+function prevExercise() {
+    if (currentExerciseIndex > 0) {
+        updateTimersOnNavigation(currentExerciseIndex, currentExerciseIndex - 1);
+        currentExerciseIndex--;
+        renderExercise(currentExerciseIndex);
     }
 }
+
+
+function updateTimersOnNavigation(oldIndex, newIndex) {
+    const now = Date.now();
+    const oldExercise = flatExercises[oldIndex];
+    const newExercise = flatExercises[newIndex];
+
+    // Stop old timers (записуємо накопичений час)
+    if (oldExercise) {
+        if (exerciseTimers[oldExercise.id].startTime) {
+            exerciseTimers[oldExercise.id].timeSpent += now - exerciseTimers[oldExercise.id].startTime;
+            exerciseTimers[oldExercise.id].startTime = null;
+        }
+        if (oldExercise.teil_id !== newExercise.teil_id && teilTimers[oldExercise.teil_id].startTime) {
+            teilTimers[oldExercise.teil_id].timeSpent += now - teilTimers[oldExercise.teil_id].startTime;
+            teilTimers[oldExercise.teil_id].startTime = null;
+        }
+        if (oldExercise.block_id !== newExercise.block_id && blockTimers[oldExercise.block_id].startTime) {
+            blockTimers[oldExercise.block_id].timeSpent += now - blockTimers[oldExercise.block_id].startTime;
+            blockTimers[oldExercise.block_id].startTime = null;
+        }
+    }
+
+    // Start new timers (продовжуємо з накопиченого часу, не обнуляємо timeSpent)
+    if (newExercise) {
+        if (exerciseTimers[newExercise.id].startTime === null) {
+            exerciseTimers[newExercise.id].startTime = now;
+        }
+        if (oldExercise.teil_id !== newExercise.teil_id && teilTimers[newExercise.teil_id].startTime === null) {
+            teilTimers[newExercise.teil_id].startTime = now;
+        }
+        if (oldExercise.block_id !== newExercise.block_id && blockTimers[newExercise.block_id].startTime === null) {
+            blockTimers[newExercise.block_id].startTime = now;
+        }
+    }
+}
+
 
 /**
- * Генерує HTML для поточного питання
+ * Генерує HTML для поточної вправи
  */
-function renderQuestion(index) {
-    if (!flatQuestions[index]) return;
+function renderExercise(index) {
+    if (!flatExercises[index]) return;
 
-    const question = flatQuestions[index];
-    const totalQuestions = flatQuestions.length;
+    const exercise = flatExercises[index];
+    const totalExercises = flatExercises.length;
 
-    // Запускаємо таймер для нової частини, якщо ми на неї перейшли
-    const currentPartId = question.part_id;
-    if (partTimers[currentPartId] && partTimers[currentPartId].startTime === null) {
-        partTimers[currentPartId].startTime = Date.now();
+    // Запускаємо таймери для нової частини/блоку/вправи, якщо ми на них перейшли
+    const { block_id, teil_id, id: exercise_id } = exercise;
+    const now = Date.now();
+
+    if (blockTimers[block_id] && blockTimers[block_id].startTime === null) {
+        blockTimers[block_id].startTime = now;
+    }
+    if (teilTimers[teil_id] && teilTimers[teil_id].startTime === null) {
+        teilTimers[teil_id].startTime = now;
+    }
+    if (exerciseTimers[exercise_id] && exerciseTimers[exercise_id].startTime === null) {
+        exerciseTimers[exercise_id].startTime = now;
     }
     
     // --- Відображення стимулу (тексту для читання/слухання) ---
@@ -372,8 +477,8 @@ function renderQuestion(index) {
         let mediaHtml = '';
 
         // Рендеримо аудіо
-        if (question.media.audios && question.media.audios.length > 0) {
-            mediaHtml += question.media.audios.map(audio => `
+        if (exercise.stimuli?.audios && exercise.stimuli.audios.length > 0) {
+            mediaHtml += exercise.stimuli.audios.map(audio => `
                 <div class="my-4">
                     <audio controls class="w-full">
                         <source src="${audio.url}" type="audio/mpeg">
@@ -384,8 +489,8 @@ function renderQuestion(index) {
         }
 
         // Рендеримо зображення
-        if (question.media.images && question.media.images.length > 0) {
-            mediaHtml += question.media.images.map(image => `
+        if (exercise.stimuli?.images && exercise.stimuli.images.length > 0) {
+            mediaHtml += exercise.stimuli.images.map(image => `
                 <div class="my-4">
                     <img src="${image.url}" alt="Зображення до завдання" class="max-w-full h-auto rounded-lg shadow-md mx-auto">
                 </div>
@@ -393,61 +498,88 @@ function renderQuestion(index) {
         }
 
         elements.stimulusText.innerHTML = `
-            <div class="text-sm font-semibold text-gray-600 mb-2">Інструкція до частини (${question.part_id}):</div>
-            <p class="mb-4 text-blue-800 italic">${question.instruction}</p>
+            <div class="text-sm font-semibold text-gray-600 mb-2">Інструкція до частини (${exercise.teil_name || 'N/A'}):</div>
+            <p class="mb-4 text-blue-800 italic">${exercise.teil_text || ''}</p>
             ${mediaHtml}
-            ${(question.media.texts || []).map(text => `<div class="border-l-4 border-gray-200 pl-4 bg-gray-50 p-3 rounded-lg text-gray-700 whitespace-pre-wrap mt-4">${text.content}</div>`).join('')}
+            ${(exercise.stimuli?.texts || []).map(text => `<div class="border-l-4 border-gray-200 pl-4 bg-gray-50 p-3 rounded-lg text-gray-700 whitespace-pre-wrap mt-4">${text.content}</div>`).join('')}
         `;
     }
 
-    // --- Відображення питання ---
-    const currentAnswer = userAnswers[question.id];
-    let questionHtml = `
-        <div id="q-${question.id}" class="bg-white p-6 rounded-xl shadow-lg transition duration-200">
+    // --- Відображення вправи ---
+    const currentAnswer = userAnswers[exercise.id];
+    let exerciseHtml = `
+        <div id="ex-${exercise.id}" class="bg-white p-6 rounded-xl shadow-lg transition duration-200">
+            <div class="mb-2 text-sm text-gray-500">
+                Block: <span class="font-semibold text-gray-700">${exercise.block_name || 'N/A'}</span> | 
+                Teil: <span class="font-semibold text-gray-700">${exercise.teil_name || 'N/A'}</span>
+            </div>
             <p class="text-lg font-bold text-gray-800 mb-4">
-                Запитання ${index + 1} з ${totalQuestions}:
-                <span class="font-normal text-blue-600">${question.text}</span>
+                Вправа ${index + 1} з ${totalExercises}:
+                <span class="font-normal text-blue-600">${exercise.text}</span>
             </p>
             <div class="space-y-3">
     `;
 
-    question.options.forEach((option, optionIndex) => {
-        const isSelected = currentAnswer === optionIndex;
-        const optionId = `q-${question.id}-o-${optionIndex}`;
-        
-        questionHtml += `
-            <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition duration-150 ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:bg-gray-50'}"
-                 onclick="handleAnswer('${question.id}', ${optionIndex})">
-                <input type="radio" id="${optionId}" name="q-${question.id}" value="${optionIndex}" class="hidden" ${isSelected ? 'checked' : ''}>
-                <label for="${optionId}" class="ml-3 text-gray-700 flex-grow cursor-pointer">
-                    <span class="font-semibold text-blue-800 mr-2">${String.fromCharCode(65 + optionIndex)}.</span> 
-                    ${option}
-                </label>
-            </div>
+    if (exercise.type === 'text_input') {
+        // Render a textarea for text input exercises
+        exerciseHtml += `
+            <textarea 
+                id="ex-${exercise.id}-text-input" 
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                rows="6" 
+                placeholder="Введіть вашу відповідь тут..."
+                oninput="handleAnswer('${exercise.id}', this.value)"
+            >${currentAnswer || ''}</textarea>
         `;
-    });
+    } else if (Array.isArray(exercise.options)) {
+        // Existing logic for multiple-choice exercises
+        exercise.options.forEach((option, optionIndex) => {
+            const isSelected = currentAnswer === optionIndex;
+            const optionId = `ex-${exercise.id}-o-${optionIndex}`;
+            
+            exerciseHtml += `
+                <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition duration-150 ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:bg-gray-50'}"
+                     onclick="handleAnswer('${exercise.id}', ${optionIndex})">
+                    <input type="radio" id="${optionId}" name="ex-${exercise.id}" value="${optionIndex}" class="hidden" ${isSelected ? 'checked' : ''}>
+                    <label for="${optionId}" class="ml-3 text-gray-700 flex-grow cursor-pointer">
+                        <span class="font-semibold text-blue-800 mr-2">${String.fromCharCode(65 + optionIndex)}.</span> 
+                        ${option}
+                    </label>
+                </div>
+            `;
+        });
+    } else {
+        // Якщо варіанти відповідей відсутні, показуємо помилку
+        exerciseHtml += `<div class="text-red-500 bg-red-100 p-4 rounded-lg">Помилка: для цієї вправи не знайдено варіантів відповідей або не вказано тип.</div>`;
+    }
     
-    questionHtml += `
+    exerciseHtml += `
             </div>
         </div>
     `;
 
     if (elements.questionsContainer) {
-        elements.questionsContainer.innerHTML = questionHtml;
+        elements.questionsContainer.innerHTML = exerciseHtml;
     }
     
     // --- Оновлення навігації та прогресу ---
     if (elements.prevBtn) elements.prevBtn.disabled = index === 0;
-    if (elements.nextBtn) elements.nextBtn.disabled = index === totalQuestions - 1;
-    if (elements.finishBtn) elements.finishBtn.textContent = index === totalQuestions - 1 ? 'Завершити Тест' : 'Перейти до завершення';
+    if (elements.nextBtn) elements.nextBtn.disabled = index === totalExercises - 1;
+    if (elements.finishBtn) elements.finishBtn.textContent = index === totalExercises - 1 ? 'Завершити Тест' : 'Перейти до завершення';
     
-    updateProgressBar(index, totalQuestions);
+    updateProgressBar(index, totalExercises);
 }
 
 // Обробник відповіді на питання
-window.handleAnswer = function(questionId, selectedIndex) {
-    userAnswers[questionId] = selectedIndex;
-    renderQuestion(currentQuestionIndex); // Перемальовуємо, щоб оновити вибір
+window.handleAnswer = function(exerciseId, answer) {
+    userAnswers[exerciseId] = answer;
+    // For text input, we don't need to re-render the exercise immediately on every input change
+    // unless we want to save drafts or update UI based on input.
+    // For multiple-choice, we still re-render to update the selected radio button.
+    const exercise = flatExercises.find(ex => ex.id === exerciseId);
+    if (exercise && exercise.type !== 'text_input') {
+        renderExercise(currentExerciseIndex); 
+    }
 }
 
 // Оновлення індикатора прогресу
@@ -460,20 +592,55 @@ function updateProgressBar(currentIndex, total) {
 }
 
 // Запуск та оновлення таймера
+function updateTimers() {
+    timeLeftSeconds--;
+    if (elements.timerDisplay) {
+        elements.timerDisplay.textContent = formatTime(timeLeftSeconds);
+    }
+
+    if (timeLeftSeconds <= 0) {
+        clearInterval(timerInterval);
+        finishTest(true); // Автоматичне завершення
+    }
+
+    // Update block, teil, and exercise timers
+    const now = Date.now();
+    const currentExercise = flatExercises[currentExerciseIndex];
+    if (!currentExercise) return;
+
+    const { block_id, teil_id, id: exercise_id } = currentExercise;
+
+    // Block timer
+    if (blockTimers[block_id]) {
+        let elapsed = blockTimers[block_id].timeSpent;
+        if (blockTimers[block_id].startTime !== null) {
+            elapsed += now - blockTimers[block_id].startTime;
+        }
+        elements.blockTimerDisplay.textContent = `Block: ${formatTime(Math.floor(elapsed / 1000))} / ${formatTime(blockTimers[block_id].totalTime)}`;
+    }
+    // Teil timer
+    if (teilTimers[teil_id]) {
+        let elapsed = teilTimers[teil_id].timeSpent;
+        if (teilTimers[teil_id].startTime !== null) {
+            elapsed += now - teilTimers[teil_id].startTime;
+        }
+        elements.teilTimerDisplay.textContent = `Teil: ${formatTime(Math.floor(elapsed / 1000))}`;
+    }
+    // Exercise timer
+    if (exerciseTimers[exercise_id]) {
+        let elapsed = exerciseTimers[exercise_id].timeSpent;
+        if (exerciseTimers[exercise_id].startTime !== null) {
+            elapsed += now - exerciseTimers[exercise_id].startTime;
+        }
+        elements.exerciseTimerDisplay.textContent = `Exercise: ${formatTime(Math.floor(elapsed / 1000))}`;
+    }
+}
+
+// Запуск та оновлення таймера
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     
-    timerInterval = setInterval(() => {
-        timeLeftSeconds--;
-        if (elements.timerDisplay) {
-            elements.timerDisplay.textContent = formatTime(timeLeftSeconds);
-        }
-
-        if (timeLeftSeconds <= 0) {
-            clearInterval(timerInterval);
-            finishTest(true); // Автоматичне завершення
-        }
-    }, 1000);
+    timerInterval = setInterval(updateTimers, 1000);
 }
 
 // Функція форматування часу
@@ -489,52 +656,138 @@ function formatTime(seconds) {
  * @param {boolean} isTimedOut - Чи було завершення через тайм-аут.
  */
 async function finishTest(isTimedOut) {
+        // Утиліта для заміни undefined на null у всіх вкладених об'єктах/масивах
+        function replaceUndefinedWithNull(obj) {
+            if (Array.isArray(obj)) {
+                return obj.map(replaceUndefinedWithNull);
+            } else if (obj && typeof obj === 'object') {
+                const newObj = {};
+                for (const key in obj) {
+                    if (Object.hasOwn(obj, key)) {
+                        const val = obj[key];
+                        newObj[key] = val === undefined ? null : replaceUndefinedWithNull(val);
+                    }
+                }
+                return newObj;
+            }
+            return obj;
+        }
     if (timerInterval) clearInterval(timerInterval);
     
-    // Зупиняємо всі таймери частин
+    // Disable finish button and show loading
+    if (elements.finishBtn) {
+        elements.finishBtn.disabled = true;
+        elements.finishBtn.textContent = 'Обробка відповідей...';
+        elements.finishBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
+    // Зупиняємо всі таймери
     const now = Date.now();
-    for (const partId in partTimers) {
-        const timer = partTimers[partId];
+    for (const id in blockTimers) {
+        const timer = blockTimers[id];
         if (timer.startTime) {
             timer.timeSpent += now - timer.startTime;
-            timer.startTime = null; // Зупиняємо
+            timer.startTime = null;
+        }
+    }
+    for (const id in teilTimers) {
+        const timer = teilTimers[id];
+        if (timer.startTime) {
+            timer.timeSpent += now - timer.startTime;
+            timer.startTime = null;
+        }
+    }
+    for (const id in exerciseTimers) {
+        const timer = exerciseTimers[id];
+        if (timer.startTime) {
+            timer.timeSpent += now - timer.startTime;
+            timer.startTime = null;
         }
     }
 
     const timeSpent = currentTest.duration_minutes * 60 - timeLeftSeconds;
     let correctCount = 0;
     
-    const detailedResults = flatQuestions.map(q => {
-        const userAnswerIndex = userAnswers[q.id];
-        const isCorrect = userAnswerIndex === q.correct_answer_index;
-        
-        if (isCorrect) {
-            correctCount++;
+    const aiExplanationPromises = [];
+    const aiExplanationsMap = new Map(); // To store AI explanations by exercise ID
+
+    const detailedResults = flatExercises.map(ex => {
+        const userAnswer = userAnswers[ex.id];
+        let isCorrect = false;
+        let explanation = ex.explanation || ''; // Default to manually provided explanation
+
+        if (ex.type === 'single_choice') {
+            isCorrect = userAnswer === ex.correct_answer_index;
+            if (isCorrect) {
+                correctCount++;
+            }
+        } else if (ex.type === 'text_input') {
+            // For text_input, correctness is determined by AI, so we don't count it here
+            // Push a promise to get AI explanation
+            aiExplanationPromises.push(
+                getAIExplanation(ex.text, userAnswer || '', ex.expected_answer_text || '')
+                    .then(aiResponse => {
+                        aiExplanationsMap.set(ex.id, aiResponse);
+                        return { exerciseId: ex.id, explanation: aiResponse };
+                    })
+                    .catch(error => {
+                        console.error(`Error getting AI explanation for exercise ${ex.id}:`, error);
+                        aiExplanationsMap.set(ex.id, "Помилка отримання пояснення від ШІ.");
+                        return { exerciseId: ex.id, explanation: "Помилка отримання пояснення від ШІ." };
+                    })
+            );
+            // Set isCorrect to false for now, AI will provide feedback
+            isCorrect = false; 
         }
         
         return {
-            questionId: q.id,
-            userAnswerIndex: userAnswerIndex,
+            exerciseId: ex.id,
+            userAnswer: userAnswer, // Store raw answer for text_input
             isCorrect: isCorrect,
-            partId: q.part_id // Додаємо ID частини до результату питання
+            teilId: ex.teil_id,
+            blockId: ex.block_id,
+            type: ex.type,
+            // explanation will be added/updated after AI processing
         };
     });
 
-    const resultData = {
+    // Wait for all AI explanations to complete
+    if (aiExplanationPromises.length > 0) {
+        if (elements.finishBtn) {
+            elements.finishBtn.textContent = 'Очікування ШІ...';
+        }
+        await Promise.all(aiExplanationPromises);
+    }
+
+    // Now, update detailedResults with AI explanations
+    const finalDetailedResults = detailedResults.map(result => {
+        if (result.type === 'text_input') {
+            const aiResponse = aiExplanationsMap.get(result.exerciseId) || { isCorrect: false, explanation: "Пояснення від ШІ відсутнє." };
+            result.isCorrect = aiResponse.isCorrect;
+            result.explanation = aiResponse.explanation;
+        } else {
+            const originalExercise = flatExercises.find(ex => ex.id === result.exerciseId);
+            result.explanation = originalExercise.explanation;
+        }
+        return result;
+    });
+
+    let resultData = {
         testId: currentTest.test_id,
         testTitle: currentTest.title,
         timestamp: new Date().toISOString(),
-        correctPoints: correctCount,
-        totalQuestions: flatQuestions.length,
+        correctPoints: finalDetailedResults.filter(r => r.isCorrect).length,
+        totalExercises: flatExercises.length,
         timeSpentSeconds: timeSpent,
         isTimedOut: isTimedOut,
         passingScore: currentTest.passing_score_points,
-        partTimes: partTimers, // Зберігаємо час по частинах
-        // Зберігаємо детальні результати для перегляду
-        detailedResults: detailedResults,
-        // Зберігаємо сам тест, щоб мати можливість переглянути його пізніше (запобігає проблемам, якщо тест буде змінено)
+        blockTimes: blockTimers,
+        teilTimes: teilTimers,
+        exerciseTimes: exerciseTimers,
+        detailedResults: finalDetailedResults, // Use final detailed results
         testSnapshot: currentTest 
     };
+    resultData = replaceUndefinedWithNull(resultData);
 
     try {
         if (!window.db || !window.userId) throw new Error("Firebase або User ID недоступні.");
@@ -548,14 +801,14 @@ async function finishTest(isTimedOut) {
         await addDoc(publicResultsRef, {
             testId: resultData.testId,
             correctPoints: resultData.correctPoints,
-            totalQuestions: resultData.totalQuestions,
+            totalExercises: resultData.totalExercises,
             timestamp: resultData.timestamp,
         });
 
 
         // 3. Переходимо на сторінку результатів
         localStorage.setItem('b2_last_result_id', newResultRef.id);
-        localStorage.setItem('b2_test_to_load', currentTest.test_id); // Зберігаємо ID тесту для `results.js`
+        // localStorage.setItem('b2_test_to_load', currentTest.test_id); // Це більше не потрібно, оскільки ми передаємо resultId через URL
         
         window.location.href = 'results-page.html';
 
@@ -565,6 +818,13 @@ async function finishTest(isTimedOut) {
         // Все одно переходимо на сторінку результатів, використовуючи локальне сховище
         localStorage.setItem('b2_last_result_data', JSON.stringify(resultData));
         window.location.href = 'results-page.html';
+    } finally {
+        // Re-enable button and reset text in case of error
+        if (elements.finishBtn) {
+            elements.finishBtn.disabled = false;
+            elements.finishBtn.textContent = 'Завершити Тест';
+            elements.finishBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
     }
 }
 
@@ -586,13 +846,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('firestoreReady', loadAvailableTests);
         }
 
-        // Обробник для кнопки "Створити Свій Тест" (не видаляємо localStorage, оскільки використовуємо URL-параметри для редагування)
-        if (elements.createNewTestBtn) {
-            elements.createNewTestBtn.addEventListener('click', (e) => {
-                 // Тут можна додати логіку для очищення, але простіше покладатися на відсутність edit=ID в URL
-            });
-        }
-        
         // Залишаємо можливість завантаження JSON як запасний варіант
         if (elements.uploadJsonFile) {
             elements.uploadJsonFile.addEventListener('change', handleJsonUpload);
@@ -651,16 +904,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Прикріплюємо обробники подій
-        if (elements.nextBtn) elements.nextBtn.addEventListener('click', nextQuestion);
-        if (elements.prevBtn) elements.prevBtn.addEventListener('click', prevQuestion);
-        if (elements.finishBtn) elements.finishBtn.addEventListener('click', () => finishTest(false));
+        if (elements.nextBtn) elements.nextBtn.addEventListener('click', nextExercise);
+        if (elements.prevBtn) elements.prevBtn.addEventListener('click', prevExercise);
+        if (elements.finishBtn) elements.finishBtn.addEventListener('click', () => {
+            window.onbeforeunload = null;
+            finishTest(false);
+        });
 
         // Додаємо попередження при спробі покинути сторінку
-        window.addEventListener('beforeunload', (e) => {
+        window.onbeforeunload = (e) => {
             if (currentTest && !currentTest.isFinished) {
                 e.preventDefault();
-                e.returnValue = ''; // Для сумісності з різними браузерами
+                e.returnValue = '';
                 return '';
+            }
+        };
+
+        // Додаємо слухач, щоб скасувати підписку onSnapshot при залишенні сторінки
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribeFromTests) {
+                console.log("Unsubscribing from test list listener.");
+                unsubscribeFromTests();
             }
         });
     }
@@ -692,7 +956,7 @@ async function handleJsonUpload(event) {
             // Додаємо userId до тесту
             const testToSave = { ...json, userId: window.userId };
 
-            // Зберігаємо тест у Firestore
+            // Зберігаємо тест у Firebase
             const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testToSave.test_id);
             await setDoc(docRef, testToSave);
 

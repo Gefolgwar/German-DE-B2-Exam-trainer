@@ -65,7 +65,6 @@
     </div>
 
     <!-- Firebase SDKs -->
-    <script src="src/js/firebase-config.js"></script>
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import {
@@ -78,7 +77,20 @@
         setDoc,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      const firebaseConfig = window.firebaseConfig || {};
+      const firebaseConfig =
+        typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {
+              apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+              authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+              projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+              storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: import.meta.env
+                .VITE_FIREBASE_MESSAGING_SENDER_ID,
+              appId: import.meta.env.VITE_FIREBASE_APP_ID,
+              measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+            };
+
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
       const db = getFirestore(app);

@@ -15,11 +15,16 @@
       }
     </style>
 
-    <!-- Конфігурація Firebase для локальної розробки -->
-    <script src="src/js/firebase-config.js"></script>
-
     <!-- Firebase SDKs -->
     <script type="module">
+      // Глобальна функція виходу для кнопки "Вийти"
+      window.logout = async () => {
+        const { getAuth, signOut } = await import(
+          "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js"
+        );
+        await signOut(getAuth());
+        // onAuthStateChanged автоматично перенаправить на login.html
+      };
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import {
         getAuth,
@@ -32,6 +37,8 @@
         setLogLevel,
         enableNetwork,
         enableIndexedDbPersistence,
+        initializeFirestore,
+        persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
       // Глобальні змінні, доступні для upload.js
@@ -42,11 +49,19 @@
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-app-id";
       const firebaseConfig =
-        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
-        window.firebaseConfig ||
-        (typeof __firebase_config !== "undefined"
+        typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
-          : {});
+          : {
+              apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+              authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+              projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+              storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: import.meta.env
+                .VITE_FIREBASE_MESSAGING_SENDER_ID,
+              appId: import.meta.env.VITE_FIREBASE_APP_ID,
+              measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+            };
+
       const initialAuthToken =
         typeof __initial_auth_token !== "undefined"
           ? __initial_auth_token
@@ -63,21 +78,10 @@
           }
 
           const app = initializeApp(firebaseConfig);
-          window.db = getFirestore(app);
-
-          // Вмикаємо офлайн-персистентність
-          try {
-            await enableIndexedDbPersistence(window.db);
-            console.log("Firestore persistence enabled.");
-          } catch (err) {
-            if (err.code == "failed-precondition") {
-              console.warn("Firestore persistence failed: multiple tabs open?");
-            } else if (err.code == "unimplemented") {
-              console.warn(
-                "Firestore persistence not supported in this browser."
-              );
-            }
-          }
+          // Ініціалізація Firestore з кешуванням
+          window.db = initializeFirestore(app, {
+            localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
+          });
 
           window.auth = getAuth(app);
           setLogLevel("Debug");
@@ -85,10 +89,8 @@
           // Слухач зміни стану аутентифікації
           onAuthStateChanged(window.auth, async (user) => {
             if (!user) {
-              // Якщо користувача немає, виконуємо анонімний вхід.
-              // onAuthStateChanged буде викликано знову з новим користувачем.
-              const anonymousUser = await signInAnonymously(window.auth);
-              return; // Виходимо, щоб уникнути подвійного виконання
+              window.location.href = "login.html";
+              return;
             }
             window.userId = user.uid;
             window.isAuthReady = true;
@@ -102,6 +104,7 @@
 
       initializeFirebase();
     </script>
+    <script type="module" src="src/js/upload.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
@@ -115,12 +118,35 @@
             >B2 Test Trainer</a
           >
         </h1>
-        <nav>
+        <nav class="flex items-center gap-4">
+          <a
+            id="admin-panel-link"
+            href="admin.html"
+            class="hidden text-purple-600 hover:text-purple-800 font-medium"
+            >Адмін-панель</a
+          >
+          <a
+            href="history-page.html"
+            class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
+            >📜 Моя Історія</a
+          >
           <a
             href="index.html"
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
-            >Тести</a
+            >Головна</a
           >
+          <a
+            id="ai-example-link"
+            href="indexAI.html"
+            class="hidden text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
+            >Приклад ШІ</a
+          >
+          <button
+            onclick="window.logout()"
+            class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm"
+          >
+            Вийти
+          </button>
         </nav>
       </div>
     </header>
@@ -190,20 +216,18 @@
           </div>
         </fieldset>
 
-        <fieldset class="border p-5 rounded-lg" id="parts-fieldset">
-          <legend class="text-2xl font-bold text-blue-700 px-2">
-            Частини Завдань
-          </legend>
-          <div id="parts-container" class="space-y-8 mt-4"></div>
+        <fieldset class="border p-5 rounded-lg" id="blocks-fieldset">
+          <legend class="text-2xl font-bold text-blue-700 px-2">Блоки</legend>
+          <div id="blocks-container" class="space-y-8 mt-4"></div>
         </fieldset>
 
         <div class="mt-6 text-center">
           <button
             type="button"
-            id="add-part-btn"
+            id="add-block-btn"
             class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md"
           >
-            ➕ Додати Частину Завдання
+            ➕ Додати Блок
           </button>
         </div>
 
@@ -219,6 +243,5 @@
         </div>
       </form>
     </main>
-    <script type="module" src="src/js/upload.js"></script>
   </body>
 </html>

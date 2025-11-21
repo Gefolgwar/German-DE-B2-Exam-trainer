@@ -67,6 +67,18 @@
         id="error-message"
         class="hidden mt-4 text-center text-red-600"
       ></div>
+      <div class="relative flex py-5 items-center">
+        <div class="flex-grow border-t border-gray-300"></div>
+        <span class="flex-shrink mx-4 text-gray-400">Або</span>
+        <div class="flex-grow border-t border-gray-300"></div>
+      </div>
+      <button
+        id="login-as-testuser-btn"
+        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+      >
+        Спробувати без реєстрації
+      </button>
+
       <div class="mt-6 text-center text-sm text-gray-600">
         Немає облікового запису?
         <a
@@ -76,9 +88,6 @@
         >
       </div>
     </div>
-
-    <!-- Конфігурація Firebase для локальної розробки -->
-    <script src="src/js/firebase-config.js"></script>
 
     <!-- Firebase SDKs та Логіка -->
     <script type="module">
@@ -92,11 +101,18 @@
 
       // Використання глобальної конфігурації
       const firebaseConfig =
-        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
-        window.firebaseConfig ||
-        (typeof __firebase_config !== "undefined"
+        typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
-          : {});
+          : {
+              apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+              authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+              projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+              storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: import.meta.env
+                .VITE_FIREBASE_MESSAGING_SENDER_ID,
+              appId: import.meta.env.VITE_FIREBASE_APP_ID,
+              measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+            };
 
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
@@ -106,6 +122,7 @@
       const forgotPasswordLink = document.getElementById(
         "forgot-password-link"
       );
+      const testUserBtn = document.getElementById("login-as-testuser-btn");
 
       // Якщо користувач вже залогінений, перенаправляємо його на головну
       onAuthStateChanged(auth, (user) => {
@@ -171,6 +188,23 @@
           }
         }
       });
+
+      // Обробник для кнопки "Спробувати без реєстрації"
+      if (testUserBtn) {
+        testUserBtn.addEventListener("click", async () => {
+          try {
+            await signInWithEmailAndPassword(
+              auth,
+              "TestUser@test.com",
+              "1234КУцй!"
+            );
+            // onAuthStateChanged спрацює і перенаправить на index.html
+          } catch (error) {
+            errorMessage.textContent = `Помилка входу тестового користувача: ${error.message}. Переконайтесь, що користувач створений у Firebase.`;
+            errorMessage.classList.remove("hidden");
+          }
+        });
+      }
     </script>
   </body>
 </html>

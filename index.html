@@ -13,9 +13,6 @@
       }
     </style>
 
-    <!-- Конфігурація Firebase для локальної розробки -->
-    <script src="src/js/firebase-config.js"></script>
-
     <!-- Firebase SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
@@ -29,6 +26,8 @@
         enableIndexedDbPersistence,
         doc,
         getDoc,
+        initializeFirestore,
+        persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
       // Глобальні змінні, доступні для main.js
@@ -36,15 +35,24 @@
       window.userId = null;
       window.userRole = "user"; // За замовчуванням
       window.isAuthReady = false;
+      window.isTestUser = false; // Додаємо прапорець для тестового користувача
 
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-app-id";
       const firebaseConfig =
-        // Спочатку спробуємо взяти з глобального об'єкта window (для локальної розробки)
-        window.firebaseConfig ||
-        (typeof __firebase_config !== "undefined"
+        typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
-          : {});
+          : {
+              apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+              authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+              projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+              storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: import.meta.env
+                .VITE_FIREBASE_MESSAGING_SENDER_ID,
+              appId: import.meta.env.VITE_FIREBASE_APP_ID,
+              measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+            };
+
       const initialAuthToken =
         typeof __initial_auth_token !== "undefined"
           ? __initial_auth_token
@@ -61,21 +69,10 @@
           }
 
           const app = initializeApp(firebaseConfig);
-          window.db = getFirestore(app);
-
-          // Вмикаємо офлайн-персистентність
-          try {
-            await enableIndexedDbPersistence(window.db);
-            console.log("Firestore persistence enabled.");
-          } catch (err) {
-            if (err.code == "failed-precondition") {
-              console.warn("Firestore persistence failed: multiple tabs open?");
-            } else if (err.code == "unimplemented") {
-              console.warn(
-                "Firestore persistence not supported in this browser."
-              );
-            }
-          }
+          // Ініціалізація Firestore з кешуванням
+          window.db = initializeFirestore(app, {
+            localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
+          });
 
           window.auth = getAuth(app);
 
@@ -86,19 +83,22 @@
           onAuthStateChanged(window.auth, async (user) => {
             if (user) {
               // Користувач увійшов
+              window.isTestUser = user.email === "TestUser@test.com";
               window.userId = user.uid;
-              // Отримуємо роль користувача
+              // Отримуємо роль користувача і зберігаємо її
               const userDocRef = doc(window.db, "users", user.uid);
               const userDoc = await getDoc(userDocRef);
-              if (userDoc.exists() && userDoc.data().role === "admin") {
-                window.userRole = "admin";
+              if (userDoc.exists() && userDoc.data().role) {
+                window.userRole = userDoc.data().role; // Зберігаємо роль (admin, test, user)
               }
               window.isAuthReady = true;
               console.log(
                 "Firebase Auth Ready. User ID:",
                 window.userId,
                 "Role:",
-                window.userRole
+                window.userRole,
+                "Is Test User:",
+                window.isTestUser
               );
               // Створення глобальної події готовності
               window.dispatchEvent(new CustomEvent("firestoreReady"));
@@ -142,7 +142,7 @@
             >Адмін-панель</a
           >
           <a
-            href="results-page.html"
+            href="history-page.html"
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
             >📜 Моя Історія</a
           >
@@ -151,6 +151,30 @@
             class="text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
             >Головна</a
           >
+          <a
+            id="ai-example-link"
+            href="indexAI.html"
+            class="hidden text-gray-600 hover:text-blue-600 transition duration-150 font-medium"
+            >Приклад ШІ</a
+          >
+          <script>
+            // Показати "Приклад ШІ" та "Адмін-панель" лише для адміна
+            document.addEventListener("DOMContentLoaded", function () {
+              function showAdminElements() {
+                if (window.userRole === "admin") {
+                  var aiLink = document.getElementById("ai-example-link");
+                  if (aiLink) aiLink.classList.remove("hidden");
+                  var adminLink = document.getElementById("admin-panel-link");
+                  if (adminLink) adminLink.classList.remove("hidden");
+                }
+              }
+              if (window.isAuthReady) {
+                showAdminElements();
+              } else {
+                window.addEventListener("firestoreReady", showAdminElements);
+              }
+            });
+          </script>
           <button
             onclick="window.logout()"
             class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm"

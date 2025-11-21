@@ -42,54 +42,117 @@ window.removeElement = function(element) {
 
 const elements = {
     form: document.getElementById('test-upload-form'),
-    partsContainer: document.getElementById('parts-container'), 
-    addPartBtn: document.getElementById('add-part-btn'),
+    blocksContainer: document.getElementById('blocks-container'), 
+    addBlockBtn: document.getElementById('add-block-btn'),
     pageTitle: document.getElementById('upload-page-title'),
 };
 
-let currentPartIndex = 0; // Лічильник для унікальних ID частин/питань
+window.currentBlockIndex = 0; // Лічильник для унікальних ID блоків
+let isFormDirty = false; // Прапорець для відстеження змін у формі
 
 // =========================================================================
 // === Функції Генерації HTML ===
 // =========================================================================
 
 /**
- * Генерує HTML-розмітку для одного питання
+ * Генерує HTML-розмітку для однієї вправи
  */
-function createQuestionHtml(partId, questionIndex, questionData = {}) {
-    const qId = questionData.id || `q-${partId}-${questionIndex}`;
-    const questionText = questionData.text || "";
-    const options = questionData.options && questionData.options.length > 0 ? questionData.options : ["", "", "", ""];
-    const correctIndex = questionData.correct_answer_index;
-    const explanation = questionData.explanation || "";
+function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
+    const exId = exerciseData.id || `ex-${teilId}-${exerciseIndex}`;
+    const exerciseText = exerciseData.text || "";
+    const exerciseType = exerciseData.type || "single_choice"; // Default to single_choice
+    const options = exerciseData.options && exerciseData.options.length > 0 ? exerciseData.options : ["", "", "", ""];
+    const correctIndex = exerciseData.correct_answer_index;
+    const explanation = exerciseData.explanation || "";
+    const expectedAnswerText = exerciseData.expected_answer_text || ""; // New field for text_input type
+    const points = exerciseData.points || 0;
     
     return `
-        <div class="question-item bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4" data-question-id="${qId}">
+        <div class="exercise-item bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4" data-exercise-id="${exId}" data-exercise-type="${exerciseType}">
             <div class="flex justify-between items-center mb-3 border-b pb-2">
-                <h5 class="text-lg font-semibold text-gray-700">Питання ${questionIndex}</h5>
-                <button type="button" onclick="window.removeElement(this.closest('.question-item'))" class="text-red-500 hover:text-red-700 transition">
-                    ❌ Видалити Питання
+                <h5 class="text-lg font-semibold text-gray-700">Вправа ${exerciseIndex}</h5>
+                <button type="button" onclick="window.removeElement(this.closest('.exercise-item'))" class="text-red-500 hover:text-red-700 transition">
+                    ❌ Видалити Вправу
                 </button>
             </div>
 
-            <input type="hidden" name="question_id" value="${qId}">
+            <input type="hidden" name="exercise_id" value="${exId}">
 
             <div class="space-y-2 mb-4">
-                <label class="block text-gray-700 font-medium">Текст Питання:</label>
-                <textarea name="question_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${questionText}</textarea>
+                <label class="block text-gray-700 font-medium">Текст Вправи:</label>
+                <textarea name="exercise_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${exerciseText}</textarea>
             </div>
 
-            <div class="options-container space-y-2 mb-4">
-                <label class="block text-gray-700 font-medium">Варіанти Відповідей:</label>
-                ${options.map((option, idx) => `
-                    <div class="flex items-center space-x-2 option-item" data-option-index="${idx}">
-                        <input type="radio" name="correct_answer_index_${qId}" value="${idx}" class="text-blue-600" ${idx === correctIndex ? 'checked' : ''}>
-                        <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Варіант ${idx + 1}" value="${option}">
-                        <button type="button" onclick="window.removeElement(this.parentNode)" class="text-red-500 hover:text-red-700 p-1 flex-shrink-0">❌</button>
-                    </div>
-                `).join('')}
+            <div class="space-y-2 mb-4">
+                <label class="block text-gray-700 font-medium">Бали за вправу:</label>
+                <input type="number" name="exercise_points" class="w-full p-2 border rounded-lg" value="${points}" min="0" required>
             </div>
-            <button type="button" onclick="addOptionToQuestion(this.closest('.question-item'))" class="text-sm text-blue-500 hover:text-blue-700 font-semibold mt-2">+ Додати Варіант Відповіді</button>
+
+            <fieldset class="border p-4 rounded-lg space-y-4">
+                <legend class="text-lg font-semibold text-gray-700 px-2">Тексти / Стимули</legend>
+                <div class="texts-container space-y-2">
+                    ${(exerciseData.stimuli?.texts || [{ id: 'Текст 1', content: '' }]).map((text, idx) => `
+                        <div class="text-stimulus-item space-y-1">
+                            <label class="block text-sm font-medium text-gray-600">Назва Стимулу ${idx + 1} (${text.id}):</label>
+                            <textarea name="stimulus_content" rows="4" data-stimulus-id="${text.id}" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Введіть повний текст для читання">${text.content}</textarea>
+                        </div>
+                    `).join('')}
+                </div>
+            </fieldset>
+
+            <fieldset class="border p-4 rounded-lg space-y-2">
+                <legend class="text-lg font-semibold text-gray-700 px-2">Медіа-Стимули (аудіо/зображення)</legend>
+                <div class="audios-container space-y-2">
+                     ${(exerciseData.stimuli?.audios || []).map(audio => `
+                        <div class="media-stimulus-item flex items-center space-x-2">
+                            <input type="url" name="stimulus_audio_url" class="w-full p-2 border rounded-lg" placeholder="https://.../audio.mp3" value="${audio.url}">
+                            <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
+                        </div>`).join('')}
+                </div>
+                <button type="button" onclick="addMediaInput(this, 'audio')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Аудіо URL</button>
+                
+                <div class="images-container space-y-2 mt-4">
+                     ${(exerciseData.stimuli?.images || []).map(image => `
+                        <div class="media-stimulus-item flex items-center space-x-2">
+                            <input type="url" name="stimulus_image_url" class="w-full p-2 border rounded-lg" placeholder="https://.../image.jpg" value="${image.url}">
+                            <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
+                        </div>`).join('')}
+                </div>
+                <button type="button" onclick="addMediaInput(this, 'image')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Зображення URL</button>
+            </fieldset>
+
+            <div class="space-y-2 mb-4">
+                <label class="block text-gray-700 font-medium">Тип Вправи:</label>
+                <select name="exercise_type" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" onchange="window.exerciseTypeChanged(this.closest('.exercise-item'))">
+                    <option value="single_choice" ${exerciseType === "single_choice" ? "selected" : ""}>Множинний вибір</option>
+                    <option value="text_input" ${exerciseType === "text_input" ? "selected" : ""}>Текстове поле</option>
+                </select>
+            </div>
+
+            <div class="options-section" style="display: ${exerciseType === 'single_choice' ? 'block' : 'none'};">
+                <div class="options-container space-y-2 mb-4">
+                    <label class="block text-gray-700 font-medium">Варіанти Відповідей:</label>
+                    ${options.map((option, idx) => `
+                        <div class="flex items-center space-x-2 option-item" data-option-index="${idx}">
+                            <input type="radio" name="correct_answer_index_${exId}" value="${idx}" class="text-blue-600" ${idx === correctIndex ? 'checked' : ''}>
+                            <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Варіант ${idx + 1}" value="${option}">
+                            <button type="button" onclick="window.removeElement(this.parentNode)" class="text-red-500 hover:text-red-700 p-1 flex-shrink-0">❌</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button type="button" onclick="addOptionToExercise(this.closest('.exercise-item'))" class="text-sm text-blue-500 hover:text-blue-700 font-semibold mt-2">+ Додати Варіант Відповіді</button>
+            </div>
+
+            <div class="expected-answer-section" style="display: ${exerciseType === 'text_input' ? 'block' : 'none'};">
+                <div class="space-y-2 mb-4">
+                    <label class="block text-gray-700 font-medium">Очікувана відповідь (для перевірки ШІ):</label>
+                    <textarea name="expected_answer_text" rows="2" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Введіть очікувану відповідь або ключові слова">${expectedAnswerText}</textarea>
+                </div>
+                <div class="space-y-2 mb-4">
+                    <label class="block text-gray-700 font-medium">Вказівки для ШІ (необов'язково):</label>
+                    <textarea name="ai_instructions" rows="3" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Наприклад: 'Оціни відповідь за граматикою та лексикою B2 рівня.'">${exerciseData.ai_instructions || ''}</textarea>
+                </div>
+            </div>
 
             <div class="space-y-2">
                 <label class="block text-gray-700 font-medium">Пояснення (необов'язково):</label>
@@ -100,16 +163,41 @@ function createQuestionHtml(partId, questionIndex, questionData = {}) {
 }
 
 /**
- * Додає новий варіант відповіді до питання.
+ * Обробляє зміну типу вправи, показуючи/ховаючи відповідні поля.
  */
-window.addOptionToQuestion = function(questionElement) {
-    const optionsContainer = questionElement.querySelector('.options-container');
-    const qId = questionElement.dataset.questionId;
+window.exerciseTypeChanged = function(exerciseElement) {
+    const selectedType = exerciseElement.querySelector('select[name="exercise_type"]').value;
+    const optionsSection = exerciseElement.querySelector('.options-section');
+    const expectedAnswerSection = exerciseElement.querySelector('.expected-answer-section');
+
+    if (selectedType === 'single_choice') {
+        optionsSection.style.display = 'block';
+        expectedAnswerSection.style.display = 'none';
+        // Ensure required for options if switching to single_choice
+        optionsSection.querySelectorAll('input[name="option_text"]').forEach(input => input.required = true);
+        expectedAnswerSection.querySelector('textarea[name="expected_answer_text"]').required = false;
+    } else if (selectedType === 'text_input') {
+        optionsSection.style.display = 'none';
+        expectedAnswerSection.style.display = 'block';
+        // Ensure required for expected_answer_text if switching to text_input
+        optionsSection.querySelectorAll('input[name="option_text"]').forEach(input => input.required = false);
+        expectedAnswerSection.querySelector('textarea[name="expected_answer_text"]').required = true;
+    }
+    // Update the data-exercise-type attribute for serialization
+    exerciseElement.dataset.exerciseType = selectedType;
+};
+
+/**
+ * Додає новий варіант відповіді до вправи.
+ */
+window.addOptionToExercise = function(exerciseElement) {
+    const optionsContainer = exerciseElement.querySelector('.options-container');
+    const exId = exerciseElement.dataset.exerciseId;
     const currentOptionCount = optionsContainer.querySelectorAll('.option-item').length;
     
     const newOptionHtml = `
         <div class="flex items-center space-x-2 option-item" data-option-index="${currentOptionCount}">
-            <input type="radio" name="correct_answer_index_${qId}" value="${currentOptionCount}" class="text-blue-600">
+            <input type="radio" name="correct_answer_index_${exId}" value="${currentOptionCount}" class="text-blue-600">
             <input type="text" name="option_text" class="w-full p-2 border rounded-lg" required placeholder="Варіант ${currentOptionCount + 1}" value="">
             <button type="button" onclick="window.removeElement(this.parentNode)" class="text-red-500 hover:text-red-700 p-1 flex-shrink-0">❌</button>
         </div>
@@ -136,89 +224,58 @@ window.addMediaInput = function(button, type) {
 }
 
 /**
- * Генерує HTML-розмітку для частини завдання
+ * Генерує HTML-розмітку для блоку
  */
-function createPartCard(partIndex, partData = {}) {
+function createBlockCard(blockIndex, blockData = {}) {
     const card = document.createElement('div');
-    const partId = partData.part_id || generateUniqueId();
-    currentPartIndex = Math.max(currentPartIndex, partIndex);
+    const blockId = blockData.block_id || generateUniqueId();
+    window.currentBlockIndex = Math.max(window.currentBlockIndex, blockIndex);
 
-    card.className = "part-card bg-white p-6 rounded-xl shadow-lg border-t-8 border-blue-500/50";
-    card.dataset.partId = partId;
+    card.className = "block-card bg-white p-6 rounded-xl shadow-lg border-t-8 border-blue-500/50";
+    card.dataset.blockId = blockId;
     card.innerHTML = `
         <div class="flex justify-between items-center mb-4">
-            <h4 class="text-2xl font-bold text-gray-800">Частина ${partIndex}</h4>
-            <button type="button" onclick="window.removeElement(this.closest('.part-card'))" class="text-red-600 hover:text-red-800 font-bold transition">
-                ❌ Видалити Частину
+            <h4 class="text-2xl font-bold text-gray-800">Блок ${blockIndex}</h4>
+            <button type="button" onclick="window.removeElement(this.closest('.block-card'))" class="text-red-600 hover:text-red-800 font-bold transition">
+                ❌ Видалити Блок
             </button>
         </div>
 
-        <input type="hidden" name="part_id" value="${partId}">
+        <input type="hidden" name="block_id" value="${blockId}">
 
         <div class="space-y-2">
-            <label class="block text-gray-700 font-semibold">Назва Частини (напр., Lesen Teil 1):</label>
-            <input type="text" name="part_title" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.title || ''}" required placeholder="Назва частини">
+            <label class="block text-gray-700 font-semibold">Назва Блоку (напр., Lesen):</label>
+            <input type="text" name="block_title" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.title || ''}" required placeholder="Назва блоку">
+        </div>
+        
+        <div class="space-y-2">
+            <label class="block text-gray-700 font-semibold">Інформація для Блоку:</label>
+            <textarea name="block_text" rows="3" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${blockData.text || ''}</textarea>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="space-y-2">
-                <label class="block text-gray-700 font-semibold">Тривалість частини (хв):</label>
-                <input type="number" name="part_duration_minutes" class="part-duration-input w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.duration_minutes || '10'}" min="1" required>
+                <label class="block text-gray-700 font-semibold">Час на блок (хв):</label>
+                <input type="number" name="block_time" class="block-duration-input w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.time || '10'}" min="1" required>
             </div>
             <div class="space-y-2">
-                <label class="block text-gray-700 font-semibold">Прохідний бал для частини:</label>
-                <input type="number" name="part_passing_score" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${partData.passing_score_points || '1'}" min="0" required>
+                <label class="block text-gray-700 font-semibold">Бали для проходження:</label>
+                <input type="number" name="block_points_to_pass" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.points_to_pass || '1'}" min="0" required>
+            </div>
+            <div class="space-y-2 bg-blue-50 p-3 rounded-lg">
+                <label class="block text-gray-700 font-semibold">Всього балів у блоці:</label>
+                <span name="block_points_display" class="text-2xl font-bold text-blue-700 block">0</span>
             </div>
         </div>
 
-        <div class="space-y-4 mb-6">
-            <div class="space-y-2">
-                <label class="block text-gray-700 font-semibold">Загальна Інструкція до Частини:</label>
-                <textarea name="instruction" rows="3" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" required>${partData.instruction || ''}</textarea>
-            </div>
-            
-            <fieldset class="border p-4 rounded-lg space-y-4">
-                <legend class="text-lg font-semibold text-gray-700 px-2">Тексти / Стимули (читання)</legend>
-                <div class="texts-container space-y-2">
-                    ${(partData.media?.texts || [{ id: 'Текст 1', content: '' }]).map((text, idx) => `
-                        <div class="text-stimulus-item space-y-1">
-                            <label class="block text-sm font-medium text-gray-600">Назва Стимулу ${idx + 1} (${text.id}):</label>
-                            <textarea name="stimulus_content" rows="4" data-stimulus-id="${text.id}" class="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Введіть повний текст для читання">${text.content}</textarea>
-                        </div>
-                    `).join('')}
-                </div>
-            </fieldset>
-
-            <fieldset class="border p-4 rounded-lg space-y-2">
-                <legend class="text-lg font-semibold text-gray-700 px-2">Медіа-Стимули (слухання/перегляд)</legend>
-                <div class="audios-container space-y-2">
-                     ${(partData.media?.audios || []).map(audio => `
-                        <div class="media-stimulus-item flex items-center space-x-2">
-                            <input type="url" name="stimulus_audio_url" class="w-full p-2 border rounded-lg" placeholder="https://.../audio.mp3" value="${audio.url}">
-                            <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
-                        </div>`).join('')}
-                </div>
-                <button type="button" onclick="addMediaInput(this, 'audio')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Аудіо URL</button>
-                
-                <div class="images-container space-y-2 mt-4">
-                     ${(partData.media?.images || []).map(image => `
-                        <div class="media-stimulus-item flex items-center space-x-2">
-                            <input type="url" name="stimulus_image_url" class="w-full p-2 border rounded-lg" placeholder="https://.../image.jpg" value="${image.url}">
-                            <button type="button" onclick="window.removeElement(this.closest('.media-stimulus-item'))" class="text-red-400 hover:text-red-600 transition text-sm">✕</button>
-                        </div>`).join('')}
-                </div>
-                <button type="button" onclick="addMediaInput(this, 'image')" class="text-sm text-blue-500 hover:text-blue-700 mt-1">➕ Додати Зображення URL</button>
-            </fieldset>
-        </div>
-
-        <div class="questions-list space-y-4 border-t pt-4">
-            <h5 class="text-xl font-bold text-gray-700">Список Питань</h5>
-            ${(partData.questions || []).map((qData, qIdx) => createQuestionHtml(partId, qIdx + 1, qData)).join('')}
+        <div class="teils-list space-y-4 border-t pt-4 mt-4">
+            <h5 class="text-xl font-bold text-gray-700">Список Частин (Teils)</h5>
+            ${(blockData.teils || []).map((teilData, teilIdx) => createTeilCard(blockId, teilIdx + 1, teilData).outerHTML).join('')}
         </div>
         
         <div class="mt-4 text-center">
-            <button type="button" onclick="addQuestionToPart(this.closest('.part-card'))" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md text-sm">
-                ➕ Додати Питання до Частини
+            <button type="button" onclick="addTeilToBlock(this.closest('.block-card'))" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-full transition duration-150 shadow-md text-sm">
+                ➕ Додати Частину (Teil) до Блоку
             </button>
         </div>
     `;
@@ -226,30 +283,154 @@ function createPartCard(partIndex, partData = {}) {
 }
 
 /**
- * Додає нову частину завдання.
+ * Генерує HTML-розмітку для частини (Teil)
  */
-function addPart(partData) {
-    currentPartIndex++;
-    const card = createPartCard(currentPartIndex, partData);
-    elements.partsContainer.appendChild(card);
+function createTeilCard(blockId, teilIndex, teilData = {}) {
+    const card = document.createElement('div');
+    const teilId = teilData.teil_id || generateUniqueId();
+
+    const exercisesHtml = (teilData.exercises || []).reduce((html, exData, exIdx) => {
+        const exerciseHtml = createExerciseHtml(teilId, exIdx + 1, exData);
+        const dividerHtml = `
+            <div class="add-exercise-divider text-center my-2">
+                <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs transition">
+                    ➕ Додати Вправу Тут
+                </button>
+            </div>
+        `;
+        return html + exerciseHtml + dividerHtml;
+    }, '');
+
+    card.className = "teil-card bg-gray-100 p-4 rounded-lg border border-gray-300";
+    card.dataset.teilId = teilId;
+    card.innerHTML = `
+        <div class="flex justify-between items-center mb-3 border-b pb-2">
+            <h5 class="text-lg font-semibold text-gray-700">Частина (Teil) ${teilIndex}</h5>
+            <button type="button" onclick="window.removeElement(this.closest('.teil-card'))" class="text-red-500 hover:text-red-700 transition">
+                ❌ Видалити Teil
+            </button>
+        </div>
+
+        <input type="hidden" name="teil_id" value="${teilId}">
+
+        <div class="space-y-2">
+            <label class="block text-gray-700 font-medium">Назва Teil (напр., Teil 1):</label>
+            <input type="text" name="teil_name" class="w-full p-2 border rounded-lg" value="${teilData.name || ''}" required>
+        </div>
+        
+        <div class="space-y-2">
+            <label class="block text-gray-700 font-medium">Інформація для Teil:</label>
+            <textarea name="teil_text" rows="2" class="w-full p-2 border rounded-lg">${teilData.text || ''}</textarea>
+        </div>
+
+        <div class="space-y-2">
+            <label class="block text-gray-700 font-medium">Бали за Teil (автоматично):</label>
+            <span name="teil_points_display" class="text-lg font-bold text-blue-600 p-2 block">${teilData.points || '0'}</span>
+            <input type="hidden" name="teil_points" value="${teilData.points || '0'}">
+        </div>
+
+        <div class="exercises-list border-t pt-4 mt-4">
+            <h6 class="text-md font-bold text-gray-600 border-b pb-2 mb-2">Вправи</h6>
+            ${exercisesHtml}
+        </div>
+        
+        <div class="mt-3 text-center">
+            <button type="button" onclick="addExerciseToTeil(this.closest('.teil-card'))" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-4 rounded-full transition duration-150 shadow-sm text-xs">
+                ➕ Додати Вправу (в кінець)
+            </button>
+        </div>
+    `;
+    return card;
+}
+
+
+/**
+ * Додає новий блок.
+ */
+function addBlock(blockData = {}) {
+    window.currentBlockIndex = (window.currentBlockIndex || 0) + 1;
+    const card = createBlockCard(window.currentBlockIndex, blockData);
+    elements.blocksContainer.appendChild(card);
     
-    // Якщо створюємо нову частину, додаємо в неї одне порожнє питання
-    if (!partData || !partData.questions || partData.questions.length === 0) {
-        addQuestionToPart(card);
+    // Якщо створюємо новий блок, додаємо в нього один порожній Teil
+    if (!blockData.teils || blockData.teils.length === 0) {
+        addTeilToBlock(card);
     }
 
     updateTotalDuration();
+    updateAllPoints();
 }
 
 /**
- * Додає нове питання до певної частини.
+ * Додає новий Teil до певного блоку.
  */
-window.addQuestionToPart = function(partCard) {
-    const questionsList = partCard.querySelector('.questions-list');
-    const partId = partCard.dataset.partId;
-    const currentQuestionCount = questionsList.querySelectorAll('.question-item').length;
+window.addTeilToBlock = function(blockCard) {
+    const teilsList = blockCard.querySelector('.teils-list');
+    if (!teilsList) return; // Guard against missing element
+    const blockId = blockCard.dataset.blockId;
+    const currentTeilCount = teilsList.querySelectorAll('.teil-card').length;
     
-    questionsList.insertAdjacentHTML('beforeend', createQuestionHtml(partId, currentQuestionCount + 1));
+    const teilCard = createTeilCard(blockId, currentTeilCount + 1, {});
+    teilsList.appendChild(teilCard);
+
+    // Додаємо одну вправу до нового Teil
+    addExerciseToTeil(teilCard);
+    updateAllPoints();
+};
+
+/**
+ * Додає нову вправу до певного Teil.
+ */
+window.addExerciseToTeil = function(teilCard) {
+    const exercisesList = teilCard.querySelector('.exercises-list');
+    if (!exercisesList) return;
+    const teilId = teilCard.dataset.teilId;
+    
+    const newExerciseHtml = createExerciseHtml(teilId, 0, {}); // Index will be fixed by updateAllPoints
+    const newDividerHtml = `
+        <div class="add-exercise-divider text-center my-2">
+            <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs">
+                ➕ Додати Вправу Тут
+            </button>
+        </div>
+    `;
+
+    exercisesList.insertAdjacentHTML('beforeend', newExerciseHtml + newDividerHtml);
+    updateAllPoints();
+};
+
+/**
+ * Додає нову вправу після існуючої.
+ */
+window.addExerciseAfter = function(buttonElement) {
+    const teilCard = buttonElement.closest('.teil-card');
+    if (!teilCard) return;
+    const teilId = teilCard.dataset.teilId;
+    const dividerElement = buttonElement.parentElement; // This is the div.add-exercise-divider
+
+    // Create new exercise HTML. Index will be fixed by updateAllPoints.
+    const newExerciseHtmlString = createExerciseHtml(teilId, 0, {});
+    const newDividerHtmlString = `
+        <div class="add-exercise-divider text-center my-2">
+            <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs">
+                ➕ Додати Вправу Тут
+            </button>
+        </div>
+    `;
+    
+    // Insert the new exercise HTML string after the clicked divider
+    dividerElement.insertAdjacentHTML('afterend', newExerciseHtmlString);
+
+    // Get a reference to the newly inserted exercise element
+    // This assumes the new exercise is the immediate next sibling after the divider
+    const newExerciseElement = dividerElement.nextElementSibling;
+
+    // Insert the new divider HTML string after the new exercise element
+    if (newExerciseElement) {
+        newExerciseElement.insertAdjacentHTML('afterend', newDividerHtmlString);
+    }
+    
+    updateAllPoints();
 };
 
 /**
@@ -257,13 +438,58 @@ window.addQuestionToPart = function(partCard) {
  */
 function updateTotalDuration() {
     let totalMinutes = 0;
-    document.querySelectorAll('.part-duration-input').forEach(input => {
+    document.querySelectorAll('.block-duration-input').forEach(input => {
         totalMinutes += parseInt(input.value, 10) || 0;
     });
     const totalDurationInput = document.getElementById('duration-minutes');
     if (totalDurationInput) {
         totalDurationInput.value = totalMinutes;
     }
+}
+
+/**
+ * Оновлює всі бали в формі.
+ */
+function updateAllPoints() {
+    let totalTestPoints = 0;
+    let exerciseCounter = 0;
+
+    document.querySelectorAll('.block-card').forEach(blockCard => {
+        let totalBlockPoints = 0;
+
+        blockCard.querySelectorAll('.teil-card').forEach(teilCard => {
+            let totalTeilPoints = 0;
+            teilCard.querySelectorAll('.exercise-item').forEach(exerciseItem => {
+                exerciseCounter++;
+                // Оновлюємо наскрізний номер вправи
+                const exerciseTitle = exerciseItem.querySelector('h5');
+                if (exerciseTitle) {
+                    exerciseTitle.textContent = `Вправа ${exerciseCounter}`;
+                }
+
+                const pointsInput = exerciseItem.querySelector('input[name="exercise_points"]');
+                totalTeilPoints += parseInt(pointsInput.value, 10) || 0;
+            });
+
+            // Оновлюємо бали для Teil
+            const teilPointsDisplay = teilCard.querySelector('span[name="teil_points_display"]');
+            const teilPointsInput = teilCard.querySelector('input[name="teil_points"]');
+            if (teilPointsDisplay) teilPointsDisplay.textContent = totalTeilPoints;
+            if (teilPointsInput) teilPointsInput.value = totalTeilPoints;
+
+            totalBlockPoints += totalTeilPoints;
+        });
+
+        // Оновлюємо бали для Block
+        const blockPointsDisplay = blockCard.querySelector('span[name="block_points_display"]');
+        if (blockPointsDisplay) {
+            blockPointsDisplay.textContent = totalBlockPoints;
+        }
+        
+        totalTestPoints += totalBlockPoints;
+    });
+
+    // Тут можна оновити загальну кількість балів за тест, якщо є відповідне поле
 }
 
 
@@ -284,88 +510,121 @@ function serializeFormToTestObject(form) {
         title: form.querySelector('#test-title').value.trim() || "Без назви",
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10),
         passing_score_points: parseInt(form.querySelector('#passing-score').value, 10),
-        questions_total: 0, // Буде оновлено пізніше
-        parts: [],
+        exercises_total: 0, // Буде оновлено пізніше
+        blocks: [],
         userId: window.userId // Зберігаємо ID користувача, який створив тест
     };
 
-    const partCards = form.querySelectorAll('.part-card');
+    const blockCards = form.querySelectorAll('.block-card');
     
-    partCards.forEach(partCard => {
-        const partId = partCard.dataset.partId;
-        const part = {
-            part_id: partId,
-            instruction: partCard.querySelector('textarea[name="instruction"]').value.trim(),
-            title: partCard.querySelector('input[name="part_title"]').value.trim(),
-            duration_minutes: parseInt(partCard.querySelector('input[name="part_duration_minutes"]').value, 10) || 0,
-            passing_score_points: parseInt(partCard.querySelector('input[name="part_passing_score"]').value, 10) || 0,
-            media: {},
-            questions: []
+    blockCards.forEach(blockCard => {
+        const blockId = blockCard.dataset.blockId;
+        const block = {
+            block_id: blockId,
+            title: blockCard.querySelector('input[name="block_title"]').value.trim(),
+            text: blockCard.querySelector('textarea[name="block_text"]').value.trim(),
+            time: parseInt(blockCard.querySelector('input[name="block_time"]').value, 10) || 0,
+            points_to_pass: parseInt(blockCard.querySelector('input[name="block_points_to_pass"]').value, 10) || 0,
+            teils: []
         };
-        
-        // Збір стимулів-текстів
-        part.media.texts = [];
-        partCard.querySelectorAll('.text-stimulus-item textarea[name="stimulus_content"]').forEach(textarea => {
-            part.media.texts.push({
-                id: textarea.dataset.stimulusId || generateUniqueId(),
-                content: textarea.value.trim()
-            });
-        });
-        if (part.media.texts.length === 0) delete part.media.texts;
 
-        // Збір стимулів-аудіо
-        part.media.audios = [];
-        partCard.querySelectorAll('input[name="stimulus_audio_url"]').forEach(input => {
-            if (input.value.trim()) {
-                part.media.audios.push({
-                    id: generateUniqueId(),
-                    url: input.value.trim()
-                });
-            }
-        });
-        if (part.media.audios?.length === 0) delete part.media.audios;
-
-        // Збір стимулів-зображень
-        part.media.images = [];
-        partCard.querySelectorAll('input[name="stimulus_image_url"]').forEach(input => {
-            if (input.value.trim()) {
-                part.media.images.push({
-                    id: generateUniqueId(),
-                    url: input.value.trim()
-                });
-            }
-        });
-        if (part.media.images?.length === 0) delete part.media.images;
-
-        // Якщо об'єкт media порожній, видаляємо його
-        if (Object.keys(part.media).length === 0) {
-            delete part.media;
-        }
-
-        // Збір питань
-        partCard.querySelectorAll('.question-item').forEach(qItem => {
-            const qId = qItem.dataset.questionId;
-            const optionsTexts = Array.from(qItem.querySelectorAll('input[name="option_text"]')).map(t => t.value.trim());
-            const correctRadio = qItem.querySelector(`input[name="correct_answer_index_${qId}"]:checked`);
-            
-            const question = {
-                id: qId,
-                text: qItem.querySelector('textarea[name="question_text"]').value.trim(),
-                type: 'single_choice',
-                options: optionsTexts,
-                correct_answer_index: correctRadio ? parseInt(correctRadio.value, 10) : 0,
-                explanation: qItem.querySelector('textarea[name="explanation"]').value.trim()
+        const teilCards = blockCard.querySelectorAll('.teil-card');
+        teilCards.forEach(teilCard => {
+            const teilId = teilCard.dataset.teilId;
+            const teil = {
+                teil_id: teilId,
+                name: teilCard.querySelector('input[name="teil_name"]').value.trim(),
+                text: teilCard.querySelector('textarea[name="teil_text"]').value.trim(),
+                points: parseInt(teilCard.querySelector('input[name="teil_points"]').value, 10) || 0,
+                exercises: []
             };
-            
-            // Валідація: якщо є текст питання і хоча б 2 варіанти
-            if (question.text && optionsTexts.filter(t => t).length >= 2) {
-                 part.questions.push(question);
-                 test.questions_total++;
+
+            // Збір вправ
+            teilCard.querySelectorAll('.exercise-item').forEach(exItem => {
+                const exId = exItem.dataset.exerciseId;
+                const exerciseType = exItem.querySelector('select[name="exercise_type"]').value;
+                const exerciseText = exItem.querySelector('textarea[name="exercise_text"]').value.trim();
+                const explanation = exItem.querySelector('textarea[name="explanation"]').value.trim();
+                const points = parseInt(exItem.querySelector('input[name="exercise_points"]').value, 10) || 0;
+
+                let exercise = {
+                    id: exId,
+                    text: exerciseText,
+                    type: exerciseType,
+                    points: points,
+                    explanation: explanation,
+                    stimuli: {}
+                };
+
+                // Збір стимулів-текстів
+                exercise.stimuli.texts = [];
+                exItem.querySelectorAll('.text-stimulus-item textarea[name="stimulus_content"]').forEach(textarea => {
+                    exercise.stimuli.texts.push({
+                        id: textarea.dataset.stimulusId || generateUniqueId(),
+                        content: textarea.value.trim()
+                    });
+                });
+                if (exercise.stimuli.texts.length === 0) delete exercise.stimuli.texts;
+
+                // Збір стимулів-аудіо
+                exercise.stimuli.audios = [];
+                exItem.querySelectorAll('input[name="stimulus_audio_url"]').forEach(input => {
+                    if (input.value.trim()) {
+                        exercise.stimuli.audios.push({
+                            id: generateUniqueId(),
+                            url: input.value.trim()
+                        });
+                    }
+                });
+                if (exercise.stimuli.audios?.length === 0) delete exercise.stimuli.audios;
+
+                // Збір стимулів-зображень
+                exercise.stimuli.images = [];
+                exItem.querySelectorAll('input[name="stimulus_image_url"]').forEach(input => {
+                    if (input.value.trim()) {
+                        exercise.stimuli.images.push({
+                            id: generateUniqueId(),
+                            url: input.value.trim()
+                        });
+                    }
+                });
+                if (exercise.stimuli.images?.length === 0) delete exercise.stimuli.images;
+
+                if (Object.keys(exercise.stimuli).length === 0) {
+                    delete exercise.stimuli;
+                }
+
+                if (exerciseType === 'single_choice') {
+                    const optionsTexts = Array.from(exItem.querySelectorAll('.options-container input[name="option_text"]')).map(t => t.value.trim());
+                    const correctRadio = exItem.querySelector(`input[name="correct_answer_index_${exId}"]:checked`);
+                    
+                    exercise.options = optionsTexts;
+                    exercise.correct_answer_index = correctRadio ? parseInt(correctRadio.value, 10) : null;
+
+                    if (exercise.text && optionsTexts.filter(t => t).length >= 2 && exercise.correct_answer_index !== null) {
+                         teil.exercises.push(exercise);
+                         test.exercises_total++;
+                    }
+                } else if (exerciseType === 'text_input') {
+                    const expectedAnswerText = exItem.querySelector('textarea[name="expected_answer_text"]').value.trim();
+                    const aiInstructions = exItem.querySelector('textarea[name="ai_instructions"]').value.trim();
+                    exercise.expected_answer_text = expectedAnswerText;
+                    exercise.ai_instructions = aiInstructions;
+
+                    if (exercise.text && exercise.expected_answer_text) {
+                        teil.exercises.push(exercise);
+                        test.exercises_total++;
+                    }
+                }
+            });
+
+            if (teil.exercises.length > 0) {
+                block.teils.push(teil);
             }
         });
 
-        if (part.questions.length > 0) {
-            test.parts.push(part);
+        if (block.teils.length > 0) {
+            test.blocks.push(block);
         }
     });
     
@@ -377,6 +636,9 @@ function serializeFormToTestObject(form) {
  */
 async function handleSubmit(event) {
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    // Скидаємо прапорець, оскільки дані будуть збережені
+    isFormDirty = false;
 
     event.preventDefault();
     showMessage("Розпочато процес збереження...", 'success');
@@ -397,12 +659,12 @@ async function handleSubmit(event) {
         showMessage("1/3: Збір та валідація даних з форми...", 'success');
         const testObject = serializeFormToTestObject(event.target);
         
-        if (testObject.questions_total === 0) {
-            showMessage("Будь ласка, додайте хоча б одне питання до тесту.", 'error');
+        if (testObject.exercises_total === 0) {
+            showMessage("Будь ласка, додайте хоча б одну вправу до тесту.", 'error');
             return;
         }
 
-        showMessage(`2/3: Дані зібрано. Знайдено ${testObject.parts.length} частин та ${testObject.questions_total} питань.`, 'success');
+        showMessage(`2/3: Дані зібрано. Знайдено ${testObject.blocks.length} блоків та ${testObject.exercises_total} вправ.`, 'success');
 
         const testId = testObject.test_id;
         const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
@@ -447,7 +709,6 @@ async function loadTestForEditing(testId, retries = 3) {
 
     const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
     
-    // Спробуємо активувати мережу перед завантаженням
     try {
         await enableNetwork(window.db);
     } catch (e) {
@@ -460,64 +721,117 @@ async function loadTestForEditing(testId, retries = 3) {
         if (docSnap.exists()) {
             const testToEdit = docSnap.data();
             
-            // Встановлення основних полів
+            // --- Конвертація старого формату (якщо потрібно) ---
+            if (testToEdit.parts && !testToEdit.blocks) {
+                showMessage("Конвертація старого формату тесту...", 'success');
+                testToEdit.blocks = testToEdit.parts.map(part => ({
+                    block_id: part.part_id || generateUniqueId(),
+                    title: part.title || "Конвертований Блок",
+                    text: part.instruction || '',
+                    time: part.duration_minutes || 10,
+                    points_to_pass: part.passing_score_points || 1,
+                    teils: [{
+                        teil_id: generateUniqueId(),
+                        name: part.title || "Основна частина",
+                        text: '',
+                        points: (part.questions || []).reduce((acc, q) => acc + (q.points || 1), 0),
+                        exercises: (part.questions || []).map(q => ({ ...q, points: q.points || 1 }))
+                    }]
+                }));
+                delete testToEdit.parts;
+            }
+
+            // --- Заповнення форми ---
             elements.form.dataset.testId = testId;
             if (elements.pageTitle) {
-                elements.pageTitle.textContent = `Редагування Тесту: ${testToEdit.title}`;
+                elements.pageTitle.textContent = `Редагування Тесту: ${testToEdit.title || ''}`;
             }
-            document.getElementById('test-title').value = testToEdit.title;
-            document.getElementById('duration-minutes').value = testToEdit.duration_minutes;
-            document.getElementById('passing-score').value = testToEdit.passing_score_points;
-            // Загальний прохідний бал тепер може бути декоративним або використовуватися для загального статусу
+            document.getElementById('test-title').value = testToEdit.title || '';
+            document.getElementById('duration-minutes').value = testToEdit.duration_minutes || 0;
+            document.getElementById('passing-score').value = testToEdit.passing_score_points || 0;
 
-            elements.partsContainer.innerHTML = '';
-            currentPartIndex = 0; // Скидаємо лічильник
+            elements.blocksContainer.innerHTML = '';
+            window.currentBlockIndex = 0; // Скидаємо лічильник
 
-            // Додавання частин
-            testToEdit.parts.forEach((partData, index) => {
-                const partIndex = index + 1; 
-                const card = createPartCard(partIndex, partData);
-                elements.partsContainer.appendChild(card);
+            // --- Рендеринг блоків ---
+            const blocks = testToEdit.blocks || [];
+            if (blocks.length > 0) {
+                blocks.forEach((blockData, index) => {
+                    addBlock(blockData);
+                });
+            } else {
+                // Якщо блоків немає, додаємо один порожній
+                addBlock();
+            }
+            
+            // Оновлюємо відображення типів вправ після рендерингу
+            document.querySelectorAll('.exercise-item').forEach(exItem => {
+                window.exerciseTypeChanged(exItem);
             });
+            
             updateTotalDuration();
-
+            updateAllPoints(); // Рахуємо бали після завантаження
             showMessage(`Тест "${testToEdit.title}" завантажено для редагування.`, 'success');
 
         } else {
             showMessage(`Помилка: Тест з ID ${testId} не знайдено. Створюємо новий.`, 'error');
             localStorage.removeItem('b2_test_to_edit'); 
-            addPart();
+            addBlock(); // Створюємо один порожній блок
         }
     } catch (error) {
-        // Додаємо механізм повторних спроб для помилки "offline"
         if (error.code === 'unavailable' && retries > 0) {
             console.warn(`Client is offline, retrying... (${retries} attempts left)`);
-            setTimeout(() => loadTestForEditing(testId, retries - 1), 1000); // Чекаємо 1 секунду
+            setTimeout(() => loadTestForEditing(testId, retries - 1), 1000);
             return;
         }
         console.error("Error loading test from Firestore:", error);
         showMessage(`Помилка завантаження тесту для редагування: ${error.message}`, 'error');
-        addPart();
+        addBlock(); // Створюємо порожній блок у випадку помилки
     }
 }
 
 
 // --- Ініціалізація ---
 document.addEventListener('DOMContentLoaded', () => {
-    if (elements.addPartBtn) {
-        elements.addPartBtn.addEventListener('click', () => addPart({})); 
+    // Перевизначаємо window.removeElement для додавання оновлення балів
+    const originalRemoveElement = window.removeElement;
+    window.removeElement = function(element) {
+        if (element) {
+            // If the element being removed is an exercise-item, also remove the following divider
+            if (element.classList.contains('exercise-item')) {
+                const nextSibling = element.nextElementSibling;
+                if (nextSibling && nextSibling.classList.contains('add-exercise-divider')) {
+                    nextSibling.remove();
+                }
+            }
+            element.remove();
+            updateAllPoints();
+        }
+    };
+
+    if (elements.addBlockBtn) {
+        elements.addBlockBtn.addEventListener('click', () => addBlock()); 
     }
 
-    // Слухач для автоматичного оновлення загальної тривалості
-    if (elements.partsContainer) {
-        elements.partsContainer.addEventListener('input', (e) => {
-            if (e.target && e.target.classList.contains('part-duration-input')) {
-                updateTotalDuration();
+    // Слухач для автоматичного оновлення
+    if (elements.form) {
+        elements.form.addEventListener('input', (e) => {
+            isFormDirty = true;
+            if (e.target) {
+                // Оновлення тривалості
+                if (e.target.classList.contains('block-duration-input')) {
+                    updateTotalDuration();
+                }
+                // Оновлення балів
+                if (e.target.name === 'exercise_points') {
+                    updateAllPoints();
+                }
+                // Оновлення вигляду вправи при зміні типу
+                if (e.target.name === 'exercise_type') {
+                    window.exerciseTypeChanged(e.target.closest('.exercise-item'));
+                }
             }
         });
-    }
-    
-    if (elements.form) {
         elements.form.addEventListener('submit', handleSubmit);
     }
     
@@ -532,7 +846,16 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('firestoreReady', () => loadTestForEditing(idToEdit));
         }
     } else {
-        // Якщо не редагуємо, створюємо нову частину
-        addPart();
+        // Якщо не редагуємо, створюємо новий блок
+        addBlock();
     }
+
+    // Додаємо попередження при спробі покинути сторінку, якщо є незбережені зміни
+    window.addEventListener('beforeunload', (e) => {
+        if (isFormDirty) {
+            e.preventDefault();
+            e.returnValue = 'Changes you made may not be saved.'; // Для сумісності
+            return 'Changes you made may not be saved.';
+        }
+    });
 });
