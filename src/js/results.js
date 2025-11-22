@@ -33,24 +33,27 @@ function formatTime(seconds) {
  * Генерує HTML-розмітку для однієї вправи у звіті.
  */
 function generateExerciseHtml({ q, originalIndex }) {
-    const detailedResult = currentResultData.detailedResults.find(r => r.exerciseId === q.id);
+    // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ ---
+    // Знаходимо результат за його індексом, а не за ID, щоб уникнути плутанини з дублікатами ID.
+    // Ми припускаємо, що detailedResults зберігається в тому ж порядку, що і flatExercises.
+    const detailedResult = currentResultData.detailedResults[originalIndex];
     if (!detailedResult) return '';
 
     // Знаходимо блок і частину, до якої належить вправа
-    const block = currentTestSnapshot.blocks.find(b => b.teils.some(t => t.exercises.some(ex => ex.id === q.id)));
-    const teil = block.teils.find(t => t.exercises.some(ex => ex.id === q.id));
-    const blockTitle = block ? block.title : 'Unbekannter Block';
-    const teilTitle = teil ? teil.name : 'Unbekannter Teil';
+    // --- ВИПРАВЛЕННЯ: Використовуємо збережені block_name та teil_name ---
+    const blockTitle = q.block_name || 'Unbekannter Block';
+    const teilTitle = q.teil_name || 'Unbekannter Teil';
 
     const isCorrect = detailedResult.isCorrect;
     const userAnswer = detailedResult.userAnswer;
     
-    // For AI-checked exercises, the explanation comes *only* from the detailedResult.
-    // For other types, it can fall back to the one stored in the test snapshot.
+    // --- ЛОГІКА ОТРИМАННЯ ПОЯСНЕННЯ ---
     let explanation = 'Erklärung nicht vorhanden.';
     if (q.type === 'text_input') {
+        // Для вправ, що перевіряються ШІ, пояснення береться ТІЛЬКИ з результату.
         explanation = detailedResult.explanation || 'Erklärung von der KI nicht erhalten.';
     } else {
+        // Для інших типів вправ, беремо пояснення з результату, або з шаблону тесту.
         explanation = detailedResult.explanation || q.explanation || 'Erklärung nicht vorhanden.';
     }
 
@@ -115,7 +118,7 @@ function generateExerciseHtml({ q, originalIndex }) {
 
             <div class="mt-4 p-3 bg-gray-100 rounded-lg">
                 <p class="font-semibold text-gray-700 mb-1">Erklärung:</p>
-                <p class="text-sm text-gray-600 whitespace-pre-wrap">${explanation}</p>
+                <p class="text-sm text-gray-600 whitespace-pre-wrap">${explanation || 'Keine Erklärung verfügbar.'}</p>
             </div>
         </div>
     `;
@@ -184,6 +187,18 @@ function renderSummary() {
     elements.resultIdDisplay.textContent = `Benutzer-ID: ${window.userId}`;
 
     // --- Статистика за рівнями ---
+    // Створюємо "плаский" список вправ, як і в main.js, щоб мати доступ до індексів
+    const flatExercises = [];
+    currentTestSnapshot.blocks.forEach(block => {
+        block.teils.forEach((teil, teilIndex) => {
+            teil.exercises.forEach((ex, exIndex) => {
+                const uniqueId = `${ex.id}-${teilIndex}-${exIndex}`;
+                // Зберігаємо оригінальний індекс для легкого доступу до результату
+                flatExercises.push({ ...ex, id: uniqueId, originalIndex: flatExercises.length });
+            });
+        });
+    });
+
     let statsHtml = `
         <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">Statistik nach Niveaus</h3>
         <div class="bg-white p-4 rounded-xl shadow-md">
@@ -194,26 +209,26 @@ function renderSummary() {
             </div>
     `;
 
-    let exerciseCounter = 0;
     currentTestSnapshot.blocks.forEach(block => {
         const blockTime = blockTimes[block.block_id] ? blockTimes[block.block_id].timeSpent / 1000 : 0;
         let blockPoints = 0;
         let blockMaxPoints = 0;
 
         block.teils.forEach(teil => {
-            let teilPoints = 0;
-            let teilMaxPoints = 0;
-
-            teil.exercises.forEach(ex => {
-                const exResult = detailedResults.find(r => r.exerciseId === ex.id);
+            // Знаходимо всі вправи, що належать до цього "Teil"
+            const exercisesInTeil = flatExercises.filter(ex => ex.teil_id === teil.teil_id);
+            
+            const teilStats = exercisesInTeil.reduce((acc, ex) => {
+                // Знаходимо результат за індексом
+                const exResult = detailedResults[ex.originalIndex];
                 const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
-                
-                teilPoints += exPoints;
-                teilMaxPoints += ex.points;
-            });
+                acc.points += exPoints;
+                acc.maxPoints += ex.points;
+                return acc;
+            }, { points: 0, maxPoints: 0 });
 
-            blockPoints += teilPoints;
-            blockMaxPoints += teilMaxPoints;
+            blockPoints += teilStats.points;
+            blockMaxPoints += teilStats.maxPoints;
         });
 
         statsHtml += `
@@ -226,34 +241,32 @@ function renderSummary() {
 
         block.teils.forEach(teil => {
             const teilTime = teilTimes[teil.teil_id] ? teilTimes[teil.teil_id].timeSpent / 1000 : 0;
-            let teilPoints = 0;
-            let teilMaxPoints = 0;
-
-            teil.exercises.forEach(ex => {
-                const exResult = detailedResults.find(r => r.exerciseId === ex.id);
+            const exercisesInTeil = flatExercises.filter(ex => ex.teil_id === teil.teil_id);
+            
+            const teilStats = exercisesInTeil.reduce((acc, ex) => {
+                const exResult = detailedResults[ex.originalIndex];
                 const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
-                
-                teilPoints += exPoints;
-                teilMaxPoints += ex.points;
-            });
-
+                acc.points += exPoints;
+                acc.maxPoints += ex.points;
+                return acc;
+            }, { points: 0, maxPoints: 0 });
+            
             statsHtml += `
                 <div class="grid grid-cols-3 gap-4 items-center py-1 pl-4 border-l-2 border-blue-100">
                     <div class="text-blue-600">Teil: ${teil.name}</div>
                     <div class="text-center font-mono">${formatTime(teilTime)}</div>
-                    <div class="text-right font-semibold">${teilPoints}/${teilMaxPoints}</div>
+                    <div class="text-right font-semibold">${teilStats.points}/${teilStats.maxPoints}</div>
                 </div>
             `;
 
-            teil.exercises.forEach(ex => {
-                exerciseCounter++;
-                const exResult = detailedResults.find(r => r.exerciseId === ex.id);
+            exercisesInTeil.forEach(ex => {
+                const exResult = detailedResults[ex.originalIndex];
                 const exTime = exerciseTimes[ex.id] ? exerciseTimes[ex.id].timeSpent / 1000 : 0;
                 const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
                 
                 statsHtml += `
                     <div class="grid grid-cols-3 gap-4 items-center py-1 pl-8 text-sm text-gray-700">
-                        <div>Übung Nr.${exerciseCounter}</div>
+                        <div>Übung Nr.${ex.originalIndex + 1}</div>
                         <div class="text-center font-mono">${formatTime(exTime)}</div>
                         <div class="text-right">${exPoints}/${ex.points}</div>
                     </div>
@@ -265,17 +278,15 @@ function renderSummary() {
     statsHtml += `</div>`; // Close the main bg-white div
     elements.statsByLevelContainer.innerHTML = statsHtml;
 
-
     // --- Логіка для перегляду помилок ---
-    const flatExercises = currentTestSnapshot.blocks.flatMap(b => b.teils.flatMap(t => t.exercises));
-
-        incorrectExercises = detailedResults
-            .filter(r => !r.isCorrect)
-            .map(r => {
-                const exerciseData = flatExercises.find(ex => ex.id === r.exerciseId);
-                const originalIndex = flatExercises.findIndex(ex => ex.id === r.exerciseId);
-                return { q: exerciseData, originalIndex: originalIndex };
-            });
+    // Використовуємо вже створений `flatExercises`
+    incorrectExercises = detailedResults
+        .map((r, index) => ({ result: r, index })) // Додаємо індекс до кожного результату
+        .filter(item => !item.result.isCorrect)
+        .map(item => {
+            const exerciseData = flatExercises[item.index];
+            return { q: exerciseData, originalIndex: item.index };
+        });
     
         let reportTitle = incorrectExercises.length > 0 
             ? `Detaillierter Bericht über ${incorrectExercises.length} Fehler` 
@@ -298,7 +309,7 @@ function renderSummary() {
                 
                 if (isReviewingAll) {
                     // Показуємо всі питання
-                    currentReportList = flatExercises.map((q, index) => ({ q, originalIndex: index }));
+                    currentReportList = flatExercises.map(q => ({ q, originalIndex: q.originalIndex }));
                     reportTitle = `Detaillierter Bericht: Alle ${totalExercises} Übungen`;
                     elements.reviewLink.textContent = '❌ Richtige Antworten ausblenden';
                 } else {

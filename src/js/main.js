@@ -358,20 +358,24 @@ function initializeTestState(test) {
     test.blocks.forEach(block => {
         blockTimers[block.block_id] = { startTime: null, timeSpent: 0, totalTime: block.time * 60 };
         block.teils.forEach(teil => {
-            teilTimers[teil.teil_id] = { startTime: null, timeSpent: 0 };
-            teil.exercises.forEach(exercise => {
-                exerciseTimers[exercise.id] = { startTime: null, timeSpent: 0 };
-            });
         });
     });
 
     // Створюємо плоский масив вправ
     flatExercises = [];
     test.blocks.forEach(block => {
-        block.teils.forEach(teil => {
-            teil.exercises.forEach(ex => {
+        block.teils.forEach((teil, teilIndex) => {
+            teil.exercises.forEach((ex, exIndex) => {
+                // --- ГАРАНТУЄМО УНІКАЛЬНІСТЬ ID ---
+                // Додаємо індекси, щоб уникнути дублікатів, якщо в JSON однакові ID
+                const uniqueId = `${ex.id}-${teilIndex}-${exIndex}`;
+
+                // --- Ініціалізуємо таймери з унікальними ID ---
+                teilTimers[teil.teil_id] = { startTime: null, timeSpent: 0 };
+                exerciseTimers[uniqueId] = { startTime: null, timeSpent: 0 };
+                // -----------------------------------------
                 flatExercises.push({
-                    ...ex,
+                    ...ex, id: uniqueId, // Перезаписуємо ID на унікальний
                     teil_id: teil.teil_id,
                     teil_name: teil.name,
                     teil_text: teil.text, // Pass teil text as instruction
@@ -710,11 +714,10 @@ async function finishTest(isTimedOut) {
     
     const aiExplanationPromises = [];
     const aiExplanationsMap = new Map(); // To store AI explanations by exercise ID
-
     const detailedResults = flatExercises.map(ex => {
         const userAnswer = userAnswers[ex.id];
         let isCorrect = false;
-        let explanation = ex.explanation || ''; // Default to manually provided explanation
+        // let explanation = ex.explanation || ''; // This will be handled later
 
         if (ex.type === 'single_choice') {
             isCorrect = userAnswer === ex.correct_answer_index;
@@ -726,14 +729,13 @@ async function finishTest(isTimedOut) {
             // Push a promise to get AI explanation
             aiExplanationPromises.push(
                 getAIExplanation(ex.task_text || ex.text, userAnswer || '', ex.expected_answer_text || '', ex.ai_instructions || '')
-                    .then(aiResponse => {
-                        aiExplanationsMap.set(ex.id, aiResponse);
-                        return { exerciseId: ex.id, explanation: aiResponse };
+                    .then(aiExplanation => {
+                        // Store the explanation in the map with the exercise ID as the key
+                        aiExplanationsMap.set(ex.id, aiExplanation);
                     })
                     .catch(error => {
                         console.error(`Error getting AI explanation for exercise ${ex.id}:`, error);
                         aiExplanationsMap.set(ex.id, "Fehler beim Abrufen der Erklärung von der KI.");
-                        return { exerciseId: ex.id, explanation: "Fehler beim Abrufen der Erklärung von der KI." };
                     })
             );
             // Set isCorrect to false for now, AI will provide feedback
@@ -747,7 +749,7 @@ async function finishTest(isTimedOut) {
             teilId: ex.teil_id,
             blockId: ex.block_id,
             type: ex.type,
-            // explanation will be added/updated after AI processing
+            explanation: ex.explanation || '' // Start with the default explanation
         };
     });
 
@@ -760,27 +762,21 @@ async function finishTest(isTimedOut) {
     }
 
     // Now, update detailedResults with AI explanations
-    const finalDetailedResults = detailedResults.map(result => {
-        const finalResult = { ...result };
-        if (result.type === 'text_input') {
-            // The AI response is a string. We'll use it as the explanation.
-            const aiExplanation = aiExplanationsMap.get(result.exerciseId);
-            finalResult.explanation = aiExplanation || "Erklärung von der KI nicht erhalten.";
-            // We cannot reliably determine correctness from the text, so we leave it as false
-            // to ensure it appears in the "incorrect" list for review.
-            finalResult.isCorrect = false;
-        } else {
-            const originalExercise = flatExercises.find(ex => ex.id === result.exerciseId);
-            finalResult.explanation = result.explanation || originalExercise.explanation || 'Erklärung nicht vorhanden.';
+    detailedResults.forEach(result => {
+        if (result.type === 'text_input' && aiExplanationsMap.has(result.exerciseId)) {
+            result.explanation = aiExplanationsMap.get(result.exerciseId);
+            // Ми залишаємо isCorrect = false для вправ, що перевіряються ШІ,
+            // щоб вони завжди з'являлися у списку для перегляду,
+            // оскільки ШІ не повертає булеве значення, а лише текстовий відгук.
+            result.isCorrect = false;
         }
-        return finalResult;
     });
 
     let resultData = {
         testId: currentTest.test_id,
         testTitle: currentTest.title,
         timestamp: new Date().toISOString(),
-        correctPoints: finalDetailedResults.filter(r => r.isCorrect).length,
+        correctPoints: detailedResults.filter(r => r.isCorrect).length,
         totalExercises: flatExercises.length,
         timeSpentSeconds: timeSpent,
         isTimedOut: isTimedOut,
@@ -788,7 +784,7 @@ async function finishTest(isTimedOut) {
         blockTimes: blockTimers,
         teilTimes: teilTimers,
         exerciseTimes: exerciseTimers,
-        detailedResults: finalDetailedResults, // Use final detailed results
+        detailedResults: detailedResults, // Use updated detailed results
         testSnapshot: currentTest 
     };
     resultData = replaceUndefinedWithNull(resultData);

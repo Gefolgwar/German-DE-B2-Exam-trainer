@@ -58,7 +58,7 @@ let isFormDirty = false; // Прапорець для відстеження з�
  * Генерує HTML-розмітку для однієї вправи
  */
 function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
-    const exId = exerciseData.id || `ex-${teilId}-${exerciseIndex}`;
+    const exId = exerciseData.id || `ex-${teilId}-${exerciseIndex}-${Math.random().toString(16).slice(2)}`;
     const exerciseText = exerciseData.text || "";
     const exerciseType = exerciseData.type || "single_choice"; // Default to single_choice
     const options = exerciseData.options && exerciseData.options.length > 0 ? exerciseData.options : ["", "", "", ""];
