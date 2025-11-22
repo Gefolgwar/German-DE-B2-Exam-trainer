@@ -129,31 +129,31 @@
   >
     <header class="bg-white shadow-lg p-4 sticky top-0 z-20">
       <div
-        class="container mx-auto max-w-4xl flex justify-between items-center"
+        class="container mx-auto max-w-4xl flex flex-wrap justify-between items-center gap-2"
       >
         <h1 class="text-xl font-bold text-gray-800">
           <a
             href="index.html"
             class="hover:text-blue-600 transition duration-150"
-            >B2 Test Trainer</a
+            >B2 Trainer</a
           >
         </h1>
-        <div class="flex items-center space-x-4">
+        <div class="flex items-center flex-wrap gap-2 sm:gap-4">
           <div
             id="timer"
-            class="text-xl font-mono font-extrabold text-red-600 bg-red-100 p-2 rounded-lg shadow"
+            class="text-lg sm:text-xl font-mono font-extrabold text-red-600 bg-red-100 p-2 rounded-lg shadow"
           >
             --:--
           </div>
           <div
             id="block-timer"
-            class="text-sm font-mono text-blue-600 bg-blue-100 p-2 rounded-lg shadow"
+            class="hidden sm:block text-sm font-mono text-blue-600 bg-blue-100 p-2 rounded-lg shadow"
           >
             Block: --:-- / --:--
           </div>
           <div
             id="teil-timer"
-            class="text-sm font-mono text-green-600 bg-green-100 p-2 rounded-lg shadow"
+            class="hidden md:block text-sm font-mono text-green-600 bg-green-100 p-2 rounded-lg shadow"
           >
             Teil: --:--
           </div>
@@ -207,7 +207,7 @@
 
     <footer class="bg-white shadow-inner p-4 sticky bottom-0 z-10">
       <div class="container mx-auto max-w-4xl">
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center gap-2">
           <button
             id="prev-btn"
             class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-150 disabled:opacity-50"
@@ -218,7 +218,7 @@
 
           <button
             id="finish-btn"
-            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition duration-300 disabled:opacity-50"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-full shadow-lg transform hover:scale-105 transition duration-300 disabled:opacity-50"
           >
             Test beenden
           </button>

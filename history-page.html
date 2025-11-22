@@ -101,16 +101,16 @@
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
       <div
-        class="container mx-auto max-w-4xl flex justify-between items-center"
+        class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap gap-2"
       >
         <h1 class="text-2xl font-bold text-gray-800">
           <a
             href="index.html"
             class="hover:text-blue-600 transition duration-150"
-            >B2 Test Trainer</a
+            >B2 Trainer</a
           >
         </h1>
-        <nav class="flex items-center gap-4">
+        <nav class="flex items-center gap-2 sm:gap-4 flex-wrap justify-end">
           <a
             id="admin-panel-link"
             href="admin.html"
@@ -222,7 +222,7 @@
           </svg>
           Filteroptionen
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div class="md:col-span-2 grid grid-cols-1 gap-4">
             <div>
               <label
@@ -264,7 +264,7 @@
               />
             </div>
           </div>
-          <div class="flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row lg:flex-col gap-4">
             <button
               id="apply-filter-btn"
               class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-200 transform hover:scale-105"
@@ -273,7 +273,7 @@
             </button>
             <button
               id="reset-filter-btn"
-              class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-200 transform hover:scale-105"
+              class="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-200 transform hover:scale-105"
             >
               Filter zurücksetzen
             </button>
@@ -308,7 +308,7 @@
       </div>
 
       <!-- Sorting Controls -->
-      <div class="flex flex-wrap gap-4 mb-4 items-center justify-end">
+      <div class="flex flex-wrap gap-2 sm:gap-4 mb-4 items-center justify-end">
         <button
           id="sort-by-title-btn"
           class="flex items-center bg-gray-200 hover:bg-blue-200 text-gray-800 font-semibold py-1 px-3 rounded-lg transition"

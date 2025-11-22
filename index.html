@@ -125,13 +125,13 @@
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-md p-4">
       <div
-        class="container mx-auto max-w-4xl flex justify-between items-center"
+        class="container mx-auto max-w-4xl flex justify-between items-center flex-wrap gap-2"
       >
         <h1 class="text-2xl font-bold text-gray-800">
           <a
             href="index.html"
             class="hover:text-blue-600 transition duration-150"
-            >B2 Test Trainer</a
+            >B2 Trainer</a
           >
         </h1>
         <nav class="flex items-center gap-4">
@@ -210,7 +210,7 @@
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
       <section
-        class="bg-white p-6 rounded-xl shadow-lg flex justify-between items-center flex-wrap gap-4"
+        class="bg-white p-6 rounded-xl shadow-lg flex flex-col md:flex-row justify-between items-center flex-wrap gap-4"
       >
         <h2 class="text-3xl font-bold text-gray-800">Tests</h2>
 
@@ -218,14 +218,14 @@
           <a
             href="upload-test.html"
             id="create-new-test-btn"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150"
+            class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 text-center"
           >
             ➕ Neuen Test erstellen
           </a>
 
           <label
             for="upload-json-file"
-            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 cursor-pointer"
+            class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 cursor-pointer text-center"
           >
             ⬆️ JSON hochladen
             <input
@@ -241,7 +241,9 @@
       <section class="mt-8">
         <h3 class="text-2xl font-bold text-gray-700 mb-4 border-b pb-2">
           Verfügbare Tests
-          <span class="text-sm font-normal ml-4 space-x-2">
+          <span
+            class="text-sm font-normal block md:inline-block mt-2 md:mt-0 md:ml-4 space-x-2"
+          >
             <button
               id="sort-by-completions"
               class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg"

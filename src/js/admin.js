@@ -151,28 +151,29 @@ function renderUsers() {
       totalAIRequests += user.stats.aiRequests;
 
     const userCard = document.createElement("div");
-    userCard.className = "bg-white p-4 rounded-lg shadow-md flex justify-between items-center";
+    // Додаємо клас .user-card-container для застосування адаптивних стилів з admin.html
+    userCard.className = "user-card-container bg-white p-4 rounded-lg shadow-md";
     userCard.innerHTML = `
-      <div>
-        <div>
-          <p class="font-bold text-lg">${user.email || userId}</p>
+      <div class="user-info flex-1 min-w-0"> <!-- flex-1 min-w-0 дозволяє блоку займати доступний простір і не виходити за межі -->
+        <div class="break-words"> <!-- break-words дозволяє переносити довгі слова/email -->
+          <p class="font-bold text-lg text-gray-800">${user.email || userId}</p>
           <p class="text-sm text-gray-600">Rolle: <span class="font-semibold ${user.role === 'admin' ? 'text-purple-600' : 'text-gray-700'}">${user.role || 'user'}</span></p>
           <p class="text-xs text-gray-400 mt-1">Erstellt am: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString("de-DE") : 'Unbekannt'}</p>
         </div>
         ${user.testUserControlsHtml}
         ${user.email !== 'TestUser@test.com' ? `
-            <div class="mt-2">
+            <div class="mt-3">
               <button data-email="${user.email}" class="btn-reset-password text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-2 rounded">
                 Passwort zurücksetzen
               </button>
             </div>
-        ` : '<div class="mt-2"><span class="text-xs text-gray-400">(Testbenutzer)</span></div>'}
+        ` : '<div class="mt-3"><span class="text-xs text-gray-400">(Testbenutzer)</span></div>'}
       </div>
-      <div class="text-right">
+      <div class="user-stats text-right flex-shrink-0"> <!-- flex-shrink-0 запобігає стисканню цього блоку -->
         <p>Tests absolviert: <span class="font-bold">${user.stats.testsTaken}</span></p>
         <p class="text-sm text-gray-500">Letzte Aktivität: ${user.stats.lastActivity}</p>
         <p class="text-sm text-blue-700">Durchschnittl. Bestehensquote: <span class="font-bold">${user.stats.avgPercent}%</span></p>
-          <p class="text-sm text-pink-700">KI-API-Anfragen: <span class="font-bold">${user.stats.aiRequests}</span></p>
+        <p class="text-sm text-pink-700">KI-API-Anfragen: <span class="font-bold">${user.stats.aiRequests}</span></p>
       </div>
     `;
     usersListContainer.appendChild(userCard);
