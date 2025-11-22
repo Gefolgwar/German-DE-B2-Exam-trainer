@@ -194,6 +194,14 @@ function renderHistory(historyItems) {
             const scoreText = isPassed ? 'Bestanden' : 'Nicht bestanden';
             const scoreIcon = isPassed ? '✅' : '❌';
 
+            // --- Кнопка видалення тільки для адмінів ---
+            const deleteButtonHtml = window.userRole === 'admin' 
+                ? `<button onclick="deleteReport('${item.id}')"
+                           class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md transition duration-200 w-24 delete-history-btn">
+                       Löschen
+                   </button>`
+                : '';
+            // -----------------------------------------
 
             // --- ОНОВЛЕНИЙ HTML КАРТКИ (КОМПАКТНА ВЕРСІЯ) ---
             historyHtml += `
@@ -230,10 +238,7 @@ function renderHistory(historyItems) {
                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md text-center transition duration-200 w-24">
                            Bericht
                         </a>
-                        <button onclick="deleteReport('${item.id}')"
-                                class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md transition duration-200 w-24">
-                            Löschen
-                        </button>
+                        ${deleteButtonHtml}
                     </div>
                 </div>`;
             // ----------------------------------------------------
