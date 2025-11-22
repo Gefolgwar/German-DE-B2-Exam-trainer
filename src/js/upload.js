@@ -396,7 +396,6 @@ window.addExerciseToTeil = function(teilCard) {
         <div class="add-exercise-divider text-center my-2">
             <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs">
                 ➕ Übung hier hinzufügen
-                ➕ Übung hier hinzufügen
             </button>
         </div>
     `;
@@ -516,7 +515,7 @@ function serializeFormToTestObject(form) {
         title: form.querySelector('#test-title').value.trim() || "Unbenannter Test",
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10),
         passing_score_points: parseInt(form.querySelector('#passing-score').value, 10),
-        exercises_total: 0, // Буде оновлено пізніше
+        questions_total: 0, // Виправлено з exercises_total на questions_total
         blocks: [],
         userId: window.userId // Зберігаємо ID користувача, який створив тест
     };
@@ -609,9 +608,9 @@ function serializeFormToTestObject(form) {
                     exercise.options = optionsTexts;
                     exercise.correct_answer_index = correctRadio ? parseInt(correctRadio.value, 10) : null;
 
-                    if (exercise.text && optionsTexts.filter(t => t).length >= 2 && exercise.correct_answer_index !== null) {
+                    if (exercise.text && optionsTexts.filter(t => t).length >= 1 && exercise.correct_answer_index !== null) {
                          teil.exercises.push(exercise);
-                         test.exercises_total++;
+                         test.questions_total++;
                     }
                 } else if (exerciseType === 'text_input') {
                     const expectedAnswerText = exItem.querySelector('textarea[name="expected_answer_text"]').value.trim();
@@ -621,7 +620,7 @@ function serializeFormToTestObject(form) {
 
                     if (exercise.text && exercise.expected_answer_text) {
                         teil.exercises.push(exercise);
-                        test.exercises_total++;
+                        test.questions_total++;
                     }
                 }
             });
@@ -666,13 +665,13 @@ async function handleSubmit(event) {
     try {
         showMessage("1/3: Daten aus dem Formular sammeln und validieren...", 'success');
         const testObject = serializeFormToTestObject(event.target);
-        
-        if (testObject.exercises_total === 0) {
+
+        if (testObject.questions_total === 0) {
             showMessage("Bitte fügen Sie dem Test mindestens eine Übung hinzu.", 'error');
             return;
         }
 
-        showMessage(`2/3: Daten gesammelt. ${testObject.blocks.length} Blöcke und ${testObject.exercises_total} Übungen gefunden.`, 'success');
+        showMessage(`2/3: Daten gesammelt. ${testObject.blocks.length} Blöcke und ${testObject.questions_total} Übungen gefunden.`, 'success');
 
         const testId = testObject.test_id;
         const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
