@@ -31,14 +31,26 @@ async function fetchUserStats(userId) {
   );
   const allResultsSnap = await getDocs(resultsRef);
   if (allResultsSnap.empty) {
-    return { testsTaken: 0, lastActivity: "Keine", avgPercent: 0, aiRequests: 0 };
+    return {
+      testsTaken: 0,
+      lastActivity: "Keine",
+      avgPercent: 0,
+      aiRequests: 0,
+      totalChars: 0,
+      charsSent: 0,
+      charsReceived: 0,
+      approxTokens: 0,
+    };
   }
   let totalPercent = 0;
   let count = 0;
   let lastTimestamp = null;
-    let aiRequests = 0;
-    allResultsSnap.forEach(doc => {
+  let aiRequests = 0;
+  let totalCharsSent = 0;
+  let totalCharsReceived = 0;
+  allResultsSnap.forEach(doc => {
     const data = doc.data();
+
     const correct = typeof data.correctPoints === 'number' ? data.correctPoints : 0;
     const total = typeof data.totalExercises === 'number' && data.totalExercises > 0 ? data.totalExercises : 1;
     totalPercent += (correct / total) * 100;
@@ -48,15 +60,28 @@ async function fetchUserStats(userId) {
     }
       // AI API usage: detailedResults with type === 'text_input'
       if (Array.isArray(data.detailedResults)) {
-        aiRequests += data.detailedResults.filter(r => r && r.type === 'text_input').length;
+        const textInputs = data.detailedResults.filter(r => r && r.type === 'text_input');
+        aiRequests += textInputs.length;
+        textInputs.forEach(r => {
+            // Для відповіді AI враховуємо і нове поле `aiResponse`, і старе `explanation` для сумісності
+            const aiResponseText = r.aiResponse || r.explanation || '';
+            totalCharsSent += (r.userInput ? r.userInput.length : 0);
+            totalCharsReceived += aiResponseText.length;
+        });
       }
   });
   const avgPercent = count > 0 ? (totalPercent / count) : 0;
+  const totalChars = totalCharsSent + totalCharsReceived;
+  const approxTokens = Math.round(totalChars / 4);
   return {
     testsTaken: count,
     lastActivity: lastTimestamp ? new Date(lastTimestamp).toLocaleString("de-DE") : "Keine",
     avgPercent: avgPercent.toFixed(1),
-    aiRequests
+    aiRequests,
+    charsSent: totalCharsSent,
+    charsReceived: totalCharsReceived,
+    totalChars: totalChars,
+    approxTokens
   };
 }
 
@@ -145,10 +170,16 @@ function renderUsers() {
     usersListContainer.innerHTML = ""; // Очищуємо контейнер
     let totalUsers = 0;
     let totalAIRequests = 0;
+    let totalCharsSentGlobal = 0;
+    let totalCharsReceivedGlobal = 0;
+    let totalTokensGlobal = 0;
 
     filteredUsers.forEach(user => {
       totalUsers++;
-      totalAIRequests += user.stats.aiRequests;
+      totalAIRequests += user.stats.aiRequests || 0;
+      totalCharsSentGlobal += user.stats.charsSent || 0;
+      totalCharsReceivedGlobal += user.stats.charsReceived || 0;
+      totalTokensGlobal += user.stats.approxTokens || 0;
 
     const userCard = document.createElement("div");
     // Додаємо клас .user-card-container для застосування адаптивних стилів з admin.html
@@ -173,18 +204,26 @@ function renderUsers() {
         <p>Tests absolviert: <span class="font-bold">${user.stats.testsTaken}</span></p>
         <p class="text-sm text-gray-500">Letzte Aktivität: ${user.stats.lastActivity}</p>
         <p class="text-sm text-blue-700">Durchschnittl. Bestehensquote: <span class="font-bold">${user.stats.avgPercent}%</span></p>
-        <p class="text-sm text-pink-700">KI-API-Anfragen: <span class="font-bold">${user.stats.aiRequests}</span></p>
+        <div class="mt-2 pt-2 border-t border-gray-200">
+            <p class="text-sm text-pink-700">KI-API-Anfragen: <span class="font-bold">${user.stats.aiRequests}</span></p>
+            <p class="text-xs text-pink-600">Zeichen gesendet: <span class="font-bold">${user.stats.charsSent.toLocaleString('de-DE')}</span></p>
+            <p class="text-xs text-pink-600">Zeichen empfangen: <span class="font-bold">${user.stats.charsReceived.toLocaleString('de-DE')}</span></p>
+            <p class="text-xs text-pink-600">Ungefähre Token-Nutzung: <span class="font-bold">~${user.stats.approxTokens.toLocaleString('de-DE')}</span></p>
+        </div>
       </div>
     `;
     usersListContainer.appendChild(userCard);
   });
 
     // Вивід глобальної статистики
-    const globalStats = document.getElementById('admin-global-stats');
-    if (globalStats) {
-      globalStats.innerHTML = `
+    const globalStatsContainer = document.getElementById('admin-global-stats');
+    if (globalStatsContainer) {
+      globalStatsContainer.innerHTML = `
         <span>Gesamtzahl der Benutzer: <span class="font-bold">${totalUsers}</span></span>
         <span>Gesamtzahl der KI-API-Anfragen: <span class="font-bold">${totalAIRequests}</span></span>
+        <span>Zeichen gesendet (gesamt): <span class="font-bold">${totalCharsSentGlobal.toLocaleString('de-DE')}</span></span>
+        <span>Zeichen empfangen (gesamt): <span class="font-bold">${totalCharsReceivedGlobal.toLocaleString('de-DE')}</span></span>
+        <span>Token-Nutzung (gesamt): <span class="font-bold">~${totalTokensGlobal.toLocaleString('de-DE')}</span></span>
       `;
     }
   // Додаємо обробники для кнопок скидання пароля

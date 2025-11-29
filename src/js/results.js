@@ -45,7 +45,7 @@ function generateExerciseHtml({ q, originalIndex }) {
     const teilTitle = q.teil_name || 'Unbekannter Teil';
 
     const isCorrect = detailedResult.isCorrect;
-    const userAnswer = detailedResult.userAnswer;
+    const userAnswer = detailedResult.userInput;
     
     // --- ЛОГІКА ОТРИМАННЯ ПОЯСНЕННЯ ---
     let explanation = 'Erklärung nicht vorhanden.';

@@ -400,6 +400,12 @@ function initializeTestState(test) {
 
 // Функція для переходу до наступної вправи
 function nextExercise() {
+    // Зберігаємо поточну відповідь перед переходом
+    const currentExercise = flatExercises[currentExerciseIndex];
+    if (currentExercise.type === 'text_input') {
+        const inputElement = document.getElementById(`ex-${currentExercise.id}-text-input`);
+        if (inputElement) userAnswers[currentExercise.id] = inputElement.value;
+    }
     if (currentExerciseIndex < flatExercises.length - 1) {
         updateTimersOnNavigation(currentExerciseIndex, currentExerciseIndex + 1);
         currentExerciseIndex++;
@@ -409,6 +415,12 @@ function nextExercise() {
 
 // Функція для переходу до попередньої вправи
 function prevExercise() {
+    // Зберігаємо поточну відповідь перед переходом
+    const currentExercise = flatExercises[currentExerciseIndex];
+    if (currentExercise.type === 'text_input') {
+        const inputElement = document.getElementById(`ex-${currentExercise.id}-text-input`);
+        if (inputElement) userAnswers[currentExercise.id] = inputElement.value;
+    }
     if (currentExerciseIndex > 0) {
         updateTimersOnNavigation(currentExerciseIndex, currentExerciseIndex - 1);
         currentExerciseIndex--;
@@ -661,6 +673,14 @@ function formatTime(seconds) {
  */
 async function finishTest(isTimedOut) {
         // Утиліта для заміни undefined на null у всіх вкладених об'єктах/масивах
+
+        // Примусово зберігаємо відповідь з поточного текстового поля перед завершенням
+        const currentExerciseBeforeFinish = flatExercises[currentExerciseIndex];
+        if (currentExerciseBeforeFinish && currentExerciseBeforeFinish.type === 'text_input') {
+            const inputElement = document.getElementById(`ex-${currentExerciseBeforeFinish.id}-text-input`);
+            if (inputElement) userAnswers[currentExerciseBeforeFinish.id] = inputElement.value;
+        }
+
         function replaceUndefinedWithNull(obj) {
             if (Array.isArray(obj)) {
                 return obj.map(replaceUndefinedWithNull);
@@ -744,7 +764,7 @@ async function finishTest(isTimedOut) {
         
         return {
             exerciseId: ex.id,
-            userAnswer: userAnswer, // Store raw answer for text_input
+            userInput: userAnswer, // Зберігаємо ввід користувача для text_input
             isCorrect: isCorrect,
             teilId: ex.teil_id,
             blockId: ex.block_id,
@@ -764,7 +784,9 @@ async function finishTest(isTimedOut) {
     // Now, update detailedResults with AI explanations
     detailedResults.forEach(result => {
         if (result.type === 'text_input' && aiExplanationsMap.has(result.exerciseId)) {
-            result.explanation = aiExplanationsMap.get(result.exerciseId);
+            const aiResponseText = aiExplanationsMap.get(result.exerciseId);
+            result.explanation = aiResponseText;
+            result.aiResponse = aiResponseText; // Зберігаємо відповідь AI
             // Ми залишаємо isCorrect = false для вправ, що перевіряються ШІ,
             // щоб вони завжди з'являлися у списку для перегляду,
             // оскільки ШІ не повертає булеве значення, а лише текстовий відгук.
