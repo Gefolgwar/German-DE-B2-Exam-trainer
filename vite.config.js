@@ -18,6 +18,7 @@ export default defineConfig({
         results: path.resolve(__dirname, 'results-page.html'),
         register: path.resolve(__dirname, 'register.html'),
         upload: path.resolve(__dirname, 'upload-test.html'),
+        indexAI: path.resolve(__dirname, 'indexAI.html'),
         // Якщо інші HTML-файли мають бути включені, додайте їх сюди
       },
     },
