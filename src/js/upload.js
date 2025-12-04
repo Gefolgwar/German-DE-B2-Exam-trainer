@@ -418,7 +418,7 @@ window.addExerciseAfter = function(buttonElement) {
     const newDividerHtmlString = `
         <div class="add-exercise-divider text-center my-2">
             <button type="button" onclick="addExerciseAfter(this)" class="bg-green-200 hover:bg-green-300 text-green-800 font-bold py-1 px-3 rounded-full text-xs">
-                ➕ Додати Вправу Тут
+                ➕ Übung hier hinzufügen
             </button>
         </div>
     `;
