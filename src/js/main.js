@@ -2,21 +2,21 @@ import { collection, onSnapshot, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc
 import { getAIExplanation } from './aiService.js'; // Import the AI service
 import { renderNavbar } from '../components/Navbar.js'; // Import the Navbar rendering function
 
-// Глобальний стан додатку (для test-page.html)
+// Global application state (for test-page.html)
 let currentTest = null;
 let userAnswers = {}; // { exerciseId: selectedIndex }
-let currentExerciseIndex = 0; // Індекс вправи, яка зараз відображається
-let flatExercises = []; // Оптимізація: плоский масив вправ
+let currentExerciseIndex = 0; // Index of the currently displayed exercise
+let flatExercises = []; // Optimization: flat array of exercises
 let timerInterval = null;
 let timeLeftSeconds = 0;
 let blockTimers = {}; // { blockId: { startTime, timeSpent, totalTime } }
 let teilTimers = {}; // { teilId: { startTime, timeSpent } }
 let exerciseTimers = {}; // { exerciseId: { startTime, timeSpent } }
-// const testDurationPlaceholder = 1500; // Це тепер береться з об'єкта тесту
+// const testDurationPlaceholder = 1500; // This is now taken from the test object
 
-// --- DOM Елементи ---
+// --- DOM Elements ---
 const elements = {
-    // Елементи для test-page.html
+    // Elements for test-page.html
     testTitle: document.getElementById('test-title'),
     currentTestTitle: document.getElementById('current-test-title'),
     stimulusText: document.getElementById('stimulus-text'),
@@ -31,38 +31,38 @@ const elements = {
     teilTimerDisplay: document.getElementById('teil-timer'),
     exerciseTimerDisplay: document.getElementById('exercise-timer'),
 
-    // Елементи для index.html (завантажуються лише там)
+    // Elements for index.html (loaded only there)
     testListContainer: document.getElementById('test-list-container'),
     uploadJsonFile: document.getElementById('upload-json-file'),
     createNewTestBtn: document.getElementById('create-new-test-btn'), 
 };
 
 /**
- * Зберігає активну функцію відписки від onSnapshot для списку тестів.
+ * Stores the active unsubscribe function from onSnapshot for the test list.
  */
 let unsubscribeFromTests = null;
 
-let allTests = []; // Глобальний масив для зберігання тестів та їх статистики
+let allTests = []; // Global array for storing tests and their statistics
 let sortOrder = {
     completions: 'desc', // 'asc' or 'desc'
     score: 'desc'
 };
 
 // =========================================================================
-// === Firebase & Допоміжні функції для роботи з даними (замінюють localStorage) ===
+// === Firebase & Helper functions for data operations (replace localStorage) ===
 // =========================================================================
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 /**
- * Генерує HTML-розмітку для одного тесту в списку.
- * @param {object} test - Об'єкт тесту з Firestore.
+ * Generates HTML markup for a single test in the list.
+ * @param {object} test - Test object from Firestore.
  */
 function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
-    // Адмін може редагувати все, користувач - тільки своє
+    // Admin can edit everything, user - only their own
     const canEdit = window.userRole === 'admin' || test.userId === window.userId;
     
-    // Форматуємо дату оновлення
+    // Format the update date
     let updatedAtString = '';
     if (test.updatedAt) {
         const date = new Date(test.updatedAt);
@@ -71,7 +71,7 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
 
     return `
         <div class="test-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500 flex justify-between items-center gap-4">
-            <!-- Ліва частина: Інформація -->
+            <!-- Left part: Information -->
             <div class="flex-grow">
                 <h4 class="text-xl font-bold text-gray-800">${test.title}</h4>
                 <div class="text-sm text-gray-500 mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -93,7 +93,7 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
                 </div>
             </div>
 
-            <!-- Права частина: Кнопки -->
+            <!-- Right part: Buttons -->
             <div class="flex-shrink-0 flex flex-col sm:flex-row gap-2 items-center">
                 <button 
                     class="btn-run w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transition"
@@ -116,20 +116,20 @@ function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
 }
 
 /**
- * Завантажує список доступних тестів з Firestore.
+ * Loads the list of available tests from Firestore.
  */
 async function loadAvailableTests() {
     if (!window.db || !window.isAuthReady || !window.userId) {
-        // Якщо Firebase ще не готовий, чекаємо
+        // If Firebase is not ready yet, wait
         console.warn("Firestore not ready or user not logged in. Waiting...");
         setTimeout(loadAvailableTests, 200);
         return;
     }
     
-    // --- ЛОГІКА ДЛЯ ДЕМО-РЕЖИМУ ---
+    // --- LOGIC FOR DEMO MODE ---
     if (window.userRole === 'test') {
-        // Для тестового користувача - завантажуємо обмежену кількість тестів
-        const assignedTestId = 'test-1763583666770-a5c28182ab19c8'; // Жорстко визначений ID
+        // For the test user - load a limited number of tests
+        const assignedTestId = 'test-1763583666770-a5c28182ab19c8'; // Hardcoded ID
         try {
             const testDocRef = doc(window.db, `artifacts/${appId}/public/data/tests`, assignedTestId);
             const testDoc = await getDoc(testDocRef);
@@ -148,11 +148,11 @@ async function loadAvailableTests() {
             console.error("Error fetching demo test:", error);
             elements.testListContainer.innerHTML = `<div class="p-10 text-center text-red-600 bg-red-100 rounded-lg">Fehler beim Laden des Demo-Tests: ${error.message}</div>`;
         }
-        return; // Виходимо, щоб не завантажувати інші тести
+        return; // Exit to avoid loading other tests
     }
-    // --- КІНЕЦЬ ЛОГІКИ ДЛЯ ДЕМО-РЕЖИМУ ---
+    // --- END OF LOGIC FOR DEMO MODE ---
 
-    // 1. Завантажуємо статистику поточного користувача
+    // 1. Load current user's statistics
     const userResultsRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
     const statsSnapshot = await getDocs(userResultsRef);
     const testStats = {}; // { testId: { completions: number, totalPercent: number } }
@@ -167,10 +167,10 @@ async function loadAvailableTests() {
         testStats[result.testId].totalPercent += percent;
     });
 
-    // 2. Завантажуємо тести і додаємо до них статистику
+    // 2. Load tests and add statistics to them
     const testCollectionRef = collection(window.db, `artifacts/${appId}/public/data/tests`);
 
-    // Скасовуємо попередню підписку, якщо вона існує
+    // Cancel the previous subscription if it exists
     if (unsubscribeFromTests) {
         unsubscribeFromTests();
     }
@@ -197,7 +197,7 @@ async function loadAvailableTests() {
 function renderAllTests() {
     if (!elements.testListContainer) return;
 
-    // Завжди показуємо адмін-контроль, якщо роль 'admin'
+    // Always show admin controls if the role is 'admin'
     if (window.userRole === 'admin') {
         document.getElementById('admin-controls')?.classList.remove('hidden');
         document.getElementById('admin-panel-link')?.classList.remove('hidden');
@@ -220,7 +220,7 @@ function renderAllTests() {
 
 
 /**
- * Прикріплює обробники подій до кнопок керування тестами.
+ * Attaches event handlers to the test control buttons.
  */
 function attachTestActionListeners() {
     document.querySelectorAll('.btn-run').forEach(button => {
@@ -256,7 +256,7 @@ function attachTestActionListeners() {
 }
 
 /**
- * Завантажує тест з Firestore і ініціює скачування JSON-файлу.
+ * Loads a test from Firestore and initiates the download of a JSON file.
  * @param {string} testId 
  */
 async function downloadTestFromFirestore(testId) {
@@ -283,16 +283,16 @@ async function downloadTestFromFirestore(testId) {
 }
 
 /**
- * Видаляє тест з Firestore.
+ * Deletes a test from Firestore.
  */
 async function deleteTestFromFirestore(testId) {
     await deleteDoc(doc(window.db, `artifacts/${appId}/public/data/tests`, testId));
-    // onSnapshot автоматично оновить список
+    // onSnapshot will update the list automatically
 }
 
 /**
- * Запускає тест, зберігаючи його ID для test-page.html.
- * @param {string} testId - ID тесту, який потрібно завантажити.
+ * Starts a test by saving its ID for test-page.html.
+ * @param {string} testId - The ID of the test to load.
  */
 window.startTest = function(testId) {
     localStorage.setItem('b2_test_to_load', testId);
@@ -300,11 +300,11 @@ window.startTest = function(testId) {
 }
 
 // =========================================================================
-// === Логіка Сторінки Тесту (test-page.html) ===
+// === Test Page Logic (test-page.html) ===
 // =========================================================================
 
 /**
- * Завантажує тест з Firestore за ID.
+ * Loads a test from Firestore by ID.
  * @param {string} testId 
  */
 async function loadTest(testId) {
@@ -323,7 +323,7 @@ async function loadTest(testId) {
             const testData = docSnap.data();
             currentTest = { ...testData, test_id: docSnap.id };
             
-            // Ініціалізація
+            // Initialization
             initializeTestState(currentTest);
             renderExercise(currentExerciseIndex);
             startTimer();
@@ -343,14 +343,14 @@ async function loadTest(testId) {
 
 
 /**
- * Ініціалізує стан тесту: плоский список питань, заголовок, тривалість.
+ * Initializes the test state: flat list of questions, title, duration.
  */
 function initializeTestState(test) {
-    // Встановлюємо заголовки
+    // Set titles
     if (elements.testTitle) elements.testTitle.textContent = `${test.title} | B2 Test`;
     if (elements.currentTestTitle) elements.currentTestTitle.textContent = test.title;
 
-    // Ініціалізуємо таймери
+    // Initialize timers
     blockTimers = {};
     teilTimers = {};
     exerciseTimers = {};
@@ -361,21 +361,21 @@ function initializeTestState(test) {
         });
     });
 
-    // Створюємо плоский масив вправ
+    // Create a flat array of exercises
     flatExercises = [];
     test.blocks.forEach(block => {
         block.teils.forEach((teil, teilIndex) => {
             teil.exercises.forEach((ex, exIndex) => {
-                // --- ГАРАНТУЄМО УНІКАЛЬНІСТЬ ID ---
-                // Додаємо індекси, щоб уникнути дублікатів, якщо в JSON однакові ID
+                // --- ENSURE ID UNIQUENESS ---
+                // Add indices to avoid duplicates if the JSON has identical IDs
                 const uniqueId = `${ex.id}-${teilIndex}-${exIndex}`;
 
-                // --- Ініціалізуємо таймери з унікальними ID ---
+                // --- Initialize timers with unique IDs ---
                 teilTimers[teil.teil_id] = { startTime: null, timeSpent: 0 };
                 exerciseTimers[uniqueId] = { startTime: null, timeSpent: 0 };
-                // -----------------------------------------
+                // ------------------------------------
                 flatExercises.push({
-                    ...ex, id: uniqueId, // Перезаписуємо ID на унікальний
+                    ...ex, id: uniqueId, // Overwrite the ID with a unique one
                     teil_id: teil.teil_id,
                     teil_name: teil.name,
                     teil_text: teil.text, // Pass teil text as instruction
@@ -387,20 +387,20 @@ function initializeTestState(test) {
         });
     });
     
-    // Ініціалізуємо відповіді
+    // Initialize answers
     userAnswers = flatExercises.reduce((acc, ex) => {
-        acc[ex.id] = null; // null - відповідь не дана
+        acc[ex.id] = null; // null - answer not given
         return acc;
     }, {});
 
-    // Встановлюємо тривалість
+    // Set duration
     timeLeftSeconds = test.duration_minutes * 60;
 }
 
 
-// Функція для переходу до наступної вправи
+// Function to move to the next exercise
 function nextExercise() {
-    // Зберігаємо поточну відповідь перед переходом
+    // Save the current answer before moving
     const currentExercise = flatExercises[currentExerciseIndex];
     if (currentExercise.type === 'text_input') {
         const inputElement = document.getElementById(`ex-${currentExercise.id}-text-input`);
@@ -413,9 +413,9 @@ function nextExercise() {
     }
 }
 
-// Функція для переходу до попередньої вправи
+// Function to move to the previous exercise
 function prevExercise() {
-    // Зберігаємо поточну відповідь перед переходом
+    // Save the current answer before moving
     const currentExercise = flatExercises[currentExerciseIndex];
     if (currentExercise.type === 'text_input') {
         const inputElement = document.getElementById(`ex-${currentExercise.id}-text-input`);
@@ -434,7 +434,7 @@ function updateTimersOnNavigation(oldIndex, newIndex) {
     const oldExercise = flatExercises[oldIndex];
     const newExercise = flatExercises[newIndex];
 
-    // Stop old timers (записуємо накопичений час)
+    // Stop old timers (record accumulated time)
     if (oldExercise) {
         if (exerciseTimers[oldExercise.id].startTime) {
             exerciseTimers[oldExercise.id].timeSpent += now - exerciseTimers[oldExercise.id].startTime;
@@ -450,7 +450,7 @@ function updateTimersOnNavigation(oldIndex, newIndex) {
         }
     }
 
-    // Start new timers (продовжуємо з накопиченого часу, не обнуляємо timeSpent)
+    // Start new timers (continue from accumulated time, do not reset timeSpent)
     if (newExercise) {
         if (exerciseTimers[newExercise.id].startTime === null) {
             exerciseTimers[newExercise.id].startTime = now;
@@ -466,7 +466,7 @@ function updateTimersOnNavigation(oldIndex, newIndex) {
 
 
 /**
- * Генерує HTML для поточної вправи
+ * Generates HTML for the current exercise
  */
 function renderExercise(index) {
     if (!flatExercises[index]) return;
@@ -474,7 +474,7 @@ function renderExercise(index) {
     const exercise = flatExercises[index];
     const totalExercises = flatExercises.length;
 
-    // Запускаємо таймери для нової частини/блоку/вправи, якщо ми на них перейшли
+    // Start timers for the new part/block/exercise if we have navigated to them
     const { block_id, teil_id, id: exercise_id } = exercise;
     const now = Date.now();
 
@@ -488,11 +488,11 @@ function renderExercise(index) {
         exerciseTimers[exercise_id].startTime = now;
     }
     
-    // --- Відображення стимулу (тексту для читання/слухання) ---
+    // --- Display stimulus (text for reading/listening) ---
     if (elements.stimulusText) {
         let mediaHtml = '';
 
-        // Рендеримо аудіо
+        // Render audio
         if (exercise.stimuli?.audios && exercise.stimuli.audios.length > 0) {
             mediaHtml += exercise.stimuli.audios.map(audio => `
                 <div class="my-4">
@@ -504,7 +504,7 @@ function renderExercise(index) {
             `).join('');
         }
 
-        // Рендеримо зображення
+        // Render images
         if (exercise.stimuli?.images && exercise.stimuli.images.length > 0) {
             mediaHtml += exercise.stimuli.images.map(image => `
                 <div class="my-4">
@@ -521,7 +521,7 @@ function renderExercise(index) {
         `;
     }
 
-    // --- Відображення вправи ---
+    // --- Display exercise ---
     const currentAnswer = userAnswers[exercise.id];
     let exerciseHtml = `
         <div id="ex-${exercise.id}" class="bg-white p-6 rounded-xl shadow-lg transition duration-200">
@@ -537,7 +537,7 @@ function renderExercise(index) {
     `;
 
     if (exercise.type === 'text_input') {
-        // Render a textarea for text input exercises
+        // Render a textarea for text_input exercises
         exerciseHtml += `
             <textarea 
                 id="ex-${exercise.id}-text-input" 
@@ -548,7 +548,7 @@ function renderExercise(index) {
             >${currentAnswer || ''}</textarea>
         `;
     } else if (Array.isArray(exercise.options)) {
-        // Existing logic for multiple-choice exercises
+        // Existing logic for single_choice exercises
         exercise.options.forEach((option, optionIndex) => {
             const isSelected = currentAnswer === optionIndex;
             const optionId = `ex-${exercise.id}-o-${optionIndex}`;
@@ -565,7 +565,7 @@ function renderExercise(index) {
             `;
         });
     } else {
-        // Якщо варіанти відповідей відсутні, показуємо помилку
+        // If options are missing, show an error
         exerciseHtml += `<div class="text-red-500 bg-red-100 p-4 rounded-lg">Fehler: Für diese Übung wurden keine Antwortoptionen gefunden oder der Typ wurde nicht angegeben.</div>`;
     }
     
@@ -578,7 +578,7 @@ function renderExercise(index) {
         elements.questionsContainer.innerHTML = exerciseHtml;
     }
     
-    // --- Оновлення навігації та прогресу ---
+    // --- Update navigation and progress ---
     if (elements.prevBtn) elements.prevBtn.disabled = index === 0;
     if (elements.nextBtn) elements.nextBtn.disabled = index === totalExercises - 1;
     if (elements.finishBtn) elements.finishBtn.textContent = index === totalExercises - 1 ? 'Test beenden' : 'Zum Abschluss';
@@ -586,19 +586,19 @@ function renderExercise(index) {
     updateProgressBar(index, totalExercises);
 }
 
-// Обробник відповіді на питання
+// Answer handler
 window.handleAnswer = function(exerciseId, answer) {
     userAnswers[exerciseId] = answer;
-    // For text input, we don't need to re-render the exercise immediately on every input change
+    // For text_input, we don't need to re-render the exercise immediately on every input change
     // unless we want to save drafts or update UI based on input.
-    // For multiple-choice, we still re-render to update the selected radio button.
+    // For single_choice, we still re-render to update the selected radio button.
     const exercise = flatExercises.find(ex => ex.id === exerciseId);
     if (exercise && exercise.type !== 'text_input') {
         renderExercise(currentExerciseIndex); 
     }
 }
 
-// Оновлення індикатора прогресу
+// Update progress bar
 function updateProgressBar(currentIndex, total) {
     const progressPercent = total > 0 ? (currentIndex + 1) / total * 100 : 0;
     const progressBar = elements.progressIndicator.querySelector('div');
@@ -607,7 +607,7 @@ function updateProgressBar(currentIndex, total) {
     }
 }
 
-// Запуск та оновлення таймера
+// Start and update timers
 function updateTimers() {
     timeLeftSeconds--;
     if (elements.timerDisplay) {
@@ -616,7 +616,7 @@ function updateTimers() {
 
     if (timeLeftSeconds <= 0) {
         clearInterval(timerInterval);
-        finishTest(true); // Автоматичне завершення
+        finishTest(true); // Automatic finish
     }
 
     // Update block, teil, and exercise timers
@@ -652,14 +652,14 @@ function updateTimers() {
     }
 }
 
-// Запуск та оновлення таймера
+// Start and update timers
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     
     timerInterval = setInterval(updateTimers, 1000);
 }
 
-// Функція форматування часу
+// Time formatting function
 function formatTime(seconds) {
     if (seconds < 0) seconds = 0;
     const minutes = Math.floor(seconds / 60);
@@ -668,13 +668,13 @@ function formatTime(seconds) {
 }
 
 /**
- * Обчислює результати та зберігає їх у Firestore.
- * @param {boolean} isTimedOut - Чи було завершення через тайм-аут.
+ * Calculates the results and saves them to Firestore.
+ * @param {boolean} isTimedOut - Whether the test was finished due to a timeout.
  */
 async function finishTest(isTimedOut) {
-        // Утиліта для заміни undefined на null у всіх вкладених об'єктах/масивах
+        // Utility to replace undefined with null in all nested objects/arrays
 
-        // Примусово зберігаємо відповідь з поточного текстового поля перед завершенням
+        // Force-save the answer from the current text field before finishing
         const currentExerciseBeforeFinish = flatExercises[currentExerciseIndex];
         if (currentExerciseBeforeFinish && currentExerciseBeforeFinish.type === 'text_input') {
             const inputElement = document.getElementById(`ex-${currentExerciseBeforeFinish.id}-text-input`);
@@ -705,7 +705,7 @@ async function finishTest(isTimedOut) {
         elements.finishBtn.classList.add('opacity-50', 'cursor-not-allowed');
     }
     
-    // Зупиняємо всі таймери
+    // Stop all timers
     const now = Date.now();
     for (const id in blockTimers) {
         const timer = blockTimers[id];
@@ -758,13 +758,13 @@ async function finishTest(isTimedOut) {
                         aiExplanationsMap.set(ex.id, "Fehler beim Abrufen der Erklärung von der KI.");
                     })
             );
-            // Set isCorrect to false for now, AI will provide feedback
+            // Set isCorrect to false for now; AI will provide feedback
             isCorrect = false; 
         }
         
         return {
             exerciseId: ex.id,
-            userInput: userAnswer, // Зберігаємо ввід користувача для text_input
+            userInput: userAnswer, // Save user input for text_input
             isCorrect: isCorrect,
             teilId: ex.teil_id,
             blockId: ex.block_id,
@@ -773,7 +773,7 @@ async function finishTest(isTimedOut) {
         };
     });
 
-    // Wait for all AI explanations to complete
+    // Wait for all AI explanations to be completed
     if (aiExplanationPromises.length > 0) {
         if (elements.finishBtn) {
             elements.finishBtn.textContent = 'Warte auf KI...';
@@ -786,10 +786,10 @@ async function finishTest(isTimedOut) {
         if (result.type === 'text_input' && aiExplanationsMap.has(result.exerciseId)) {
             const aiResponseText = aiExplanationsMap.get(result.exerciseId);
             result.explanation = aiResponseText;
-            result.aiResponse = aiResponseText; // Зберігаємо відповідь AI
-            // Ми залишаємо isCorrect = false для вправ, що перевіряються ШІ,
-            // щоб вони завжди з'являлися у списку для перегляду,
-            // оскільки ШІ не повертає булеве значення, а лише текстовий відгук.
+            result.aiResponse = aiResponseText; // Save the AI response
+            // We leave isCorrect = false for AI-checked exercises
+            // so they always appear in the review list,
+            // as the AI returns a text feedback, not a boolean.
             result.isCorrect = false;
         }
     });
@@ -814,11 +814,11 @@ async function finishTest(isTimedOut) {
     try {
         if (!window.db || !window.userId) throw new Error("Firebase oder Benutzer-ID nicht verfügbar.");
 
-        // 1. Зберігаємо детальний результат для користувача
+        // 1. Save the detailed result for the user
         const resultsCollectionRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
         const newResultRef = await addDoc(resultsCollectionRef, resultData);
 
-        // 2. Зберігаємо анонімний результат для загальної статистики
+        // 2. Save an anonymous result for general statistics
         const publicResultsRef = collection(window.db, `artifacts/${appId}/public/data/public_results`);
         await addDoc(publicResultsRef, {
             testId: resultData.testId,
@@ -828,16 +828,16 @@ async function finishTest(isTimedOut) {
         });
 
 
-        // 3. Переходимо на сторінку результатів
+        // 3. Navigate to the results page
         localStorage.setItem('b2_last_result_id', newResultRef.id);
         // localStorage.setItem('b2_test_to_load', currentTest.test_id); // Це більше не потрібно, оскільки ми передаємо resultId через URL
         
         window.location.href = 'results-page.html';
 
     } catch (error) {
-        console.error("Помилка збереження результатів у Firestore:", error);
+        console.error("Error saving results to Firestore:", error);
         alert(`Fehler beim Speichern der Ergebnisse. Sie werden nicht gespeichert: ${error.message}`);
-        // Все одно переходимо на сторінку результатів, використовуючи локальне сховище
+        // Still navigate to the results page using local storage
         localStorage.setItem('b2_last_result_data', JSON.stringify(resultData));
         window.location.href = 'results-page.html';
     } finally {
@@ -852,28 +852,28 @@ async function finishTest(isTimedOut) {
 
 
 // =========================================================================
-// === Ініціалізація та Головний Обробник ===
+// === Initialization and Main Handler ===
 // =========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname;
 
     if (currentPath.includes('index.html') || currentPath === '/') {
-        // Логіка для головної сторінки
+        // Logic for the main page
         
-        // Чекаємо готовності Firebase
+        // Wait for Firebase to be ready
         if (window.isAuthReady) {
             loadAvailableTests();
         } else {
             window.addEventListener('firestoreReady', loadAvailableTests);
         }
 
-        // Залишаємо можливість завантаження JSON як запасний варіант
+        // Keep the option to upload JSON as a fallback
         if (elements.uploadJsonFile) {
             elements.uploadJsonFile.addEventListener('change', handleJsonUpload);
         }
         
-        // Обробники для сортування
+        // Handlers for sorting
         const sortByScoreBtn = document.getElementById('sort-by-score');
         const sortByCompletionsBtn = document.getElementById('sort-by-completions');
 
@@ -910,7 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
     } else if (currentPath.includes('test-page.html')) {
-        // Логіка для сторінки тесту
+        // Logic for the test page
         const testId = localStorage.getItem('b2_test_to_load');
         
         if (testId) {
@@ -925,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Прикріплюємо обробники подій
+        // Attach event handlers
         if (elements.nextBtn) elements.nextBtn.addEventListener('click', nextExercise);
         if (elements.prevBtn) elements.prevBtn.addEventListener('click', prevExercise);
         if (elements.finishBtn) elements.finishBtn.addEventListener('click', () => {
@@ -933,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
             finishTest(false);
         });
 
-        // Додаємо попередження при спробі покинути сторінку
+        // Add a warning when trying to leave the page
         window.onbeforeunload = (e) => {
             if (currentTest && !currentTest.isFinished) {
                 e.preventDefault();
@@ -942,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Додаємо слухач, щоб скасувати підписку onSnapshot при залишенні сторінки
+        // Add a listener to unsubscribe from onSnapshot when leaving the page
         window.addEventListener('beforeunload', () => {
             if (unsubscribeFromTests) {
                 console.log("Unsubscribing from test list listener.");
@@ -954,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================================
-// === Запасна Логіка Завантаження JSON (якщо Firebase недоступний або потрібен імпорт) ===
+// === Fallback JSON Upload Logic (if Firebase is unavailable or import is needed) ===
 // =========================================================================
 
 async function handleJsonUpload(event) {
@@ -975,15 +975,15 @@ async function handleJsonUpload(event) {
                 return;
             }
 
-            // Додаємо userId до тесту
+            // Add userId to the test
             const testToSave = { ...json, userId: window.userId };
 
-            // Зберігаємо тест у Firebase
+            // Save the test to Firebase
             const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testToSave.test_id);
             await setDoc(docRef, testToSave);
 
             alertBox('success', `Test "${testToSave.title}" erfolgreich in Firebase hochgeladen!`);
-            // Список оновиться автоматично завдяки onSnapshot
+            // The list will update automatically thanks to onSnapshot
 
         } catch (error) {
             alertBox('error', 'Помилка розбору JSON файлу.');
@@ -993,7 +993,7 @@ async function handleJsonUpload(event) {
 }
 
 function alertBox(type, message) {
-    // Дуже проста реалізація alert, оскільки window.alert заборонений
+    // A very simple alert implementation, as window.alert is disallowed
     const tempDiv = document.createElement('div');
     tempDiv.className = `fixed top-0 left-1/2 transform -translate-x-1/2 mt-4 p-4 rounded-lg shadow-xl z-50 
                          ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;

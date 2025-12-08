@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eigenen B2-Test erstellen</title>
+    <title>Create Your Own B2 Test</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -17,13 +17,13 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-      // Глобальна функція виходу для кнопки "Вийти"
+      // Global logout function for the "Logout" button
       window.logout = async () => {
         const { getAuth, signOut } = await import(
           "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js"
         );
         await signOut(getAuth());
-        // onAuthStateChanged автоматично перенаправить на login.html
+        // onAuthStateChanged will automatically redirect to login.html
       };
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import {
@@ -41,7 +41,7 @@
         persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      // Глобальні змінні, доступні для upload.js
+      // Global variables available for upload.js
       window.db = null;
       window.userId = null;
       window.isAuthReady = false;
@@ -67,18 +67,18 @@
           ? __initial_auth_token
           : null;
 
-      // Ініціалізація та Аутентифікація
+      // Initialization and Authentication
       async function initializeFirebase() {
         try {
           if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
             console.error(
               "Firebase config is missing. Using local storage fallback."
             );
-            return; // Вихід, якщо конфігурації немає
+            return; // Exit if config is missing
           }
 
           const app = initializeApp(firebaseConfig);
-          // Ініціалізація Firestore з кешуванням
+          // Initialize Firestore with caching
           window.db = initializeFirestore(app, {
             localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
           });
@@ -86,7 +86,7 @@
           window.auth = getAuth(app);
           setLogLevel("Debug");
 
-          // Слухач зміни стану аутентифікації
+          // Authentication state change listener
           onAuthStateChanged(window.auth, async (user) => {
             if (!user) {
               window.location.href = "login.html";
@@ -94,7 +94,7 @@
             }
             window.userId = user.uid;
             window.isAuthReady = true;
-            // Створення глобальної події готовності, яку можуть слухати інші скрипти
+            // Create a global readiness event that other scripts can listen to
             window.dispatchEvent(new CustomEvent("firestoreReady"));
           });
         } catch (error) {
@@ -156,7 +156,7 @@
         id="upload-page-title"
         class="text-3xl font-extrabold text-gray-800 mb-8 border-b pb-2 text-center"
       >
-        Neuen B2-Test erstellen
+        Create New B2 Test
       </h2>
 
       <form
@@ -169,7 +169,7 @@
           </legend>
           <div class="space-y-2">
             <label for="test-title" class="block text-gray-700 font-semibold"
-              >Testname (z.B. Lesen Teil 1)</label
+              >Test Name (e.g., Lesen Teil 1)</label
             >
             <input
               type="text"
@@ -239,7 +239,7 @@
             type="submit"
             class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-12 rounded-full text-lg shadow-lg transform hover:scale-105 transition duration-300 ease-in-out"
           >
-            💾 Test in Firebase speichern
+            💾 Save Test to Firebase
           </button>
         </div>
       </form>

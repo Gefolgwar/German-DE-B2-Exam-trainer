@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Реєстрація - B2 Test Trainer</title>
+    <title>Registration - B2 Test Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -30,7 +30,7 @@
         </div>
         <div>
           <label for="password" class="block text-sm font-medium text-gray-700"
-            >Пароль (мін. 6 символів)</label
+            >Password (min. 6 characters)</label
           >
           <input
             type="password"
@@ -113,22 +113,22 @@
           );
           const user = userCredential.user;
 
-          // Створюємо запис для користувача в колекції 'users'
+          // Create a record for the user in the 'users' collection
           await setDoc(doc(db, "users", user.uid), {
             email: user.email,
-            role: "user", // Всі нові користувачі за замовчуванням мають роль 'user'
+            role: "user", // All new users have the 'user' role by default
             createdAt: new Date().toISOString(),
           });
 
-          // Перенаправляємо на головну сторінку після успішної реєстрації
+          // Redirect to the main page after successful registration
           window.location.href = "index.html";
         } catch (error) {
-          let errorText = "Помилка реєстрації.";
+          let errorText = "Registration error.";
           if (error.code === "auth/email-already-in-use") {
-            errorText = "Цей email вже використовується.";
+            errorText = "This email is already in use.";
           } else if (error.code === "auth/weak-password") {
             errorText =
-              "Пароль занадто слабкий. Він має містити щонайменше 6 символів.";
+              "Password is too weak. It must contain at least 6 characters.";
           }
           errorMessage.textContent = errorText;
           errorMessage.classList.remove("hidden");

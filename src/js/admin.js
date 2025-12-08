@@ -18,7 +18,7 @@ const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 const usersListContainer = document.getElementById("users-list-container");
 const testsStatsContainer = document.getElementById("tests-stats-container");
 
-let allUsersData = []; // Зберігаємо всіх користувачів для сортування
+let allUsersData = []; // Store all users for sorting
 let userSort = {
     field: 'createdAt',
     direction: 'desc'
@@ -94,8 +94,8 @@ async function loadUsers() {
     return;
   }
 
-  // Цей код має виконуватися, коли користувачі є
-    // Завантажуємо всі доступні тести для випадаючого списку
+  // This code should execute when there are users
+    // Load all available tests for the dropdown list
     const testsRef = collection(db, `artifacts/${appId}/public/data/tests`);
     const testsSnap = await getDocs(testsRef);
     const allAvailableTests = [];
@@ -103,7 +103,7 @@ async function loadUsers() {
         allAvailableTests.push({ id: doc.id, title: doc.data().title });
     });
 
-    usersListContainer.innerHTML = ""; // Очищуємо контейнер
+    usersListContainer.innerHTML = ""; // Clear the container
 
     const usersPromises = snapshot.docs.map(async (doc) => {
         const user = doc.data();
@@ -112,7 +112,7 @@ async function loadUsers() {
 
     let testUserControlsHtml = '';
 
-    // Додаємо інформацію про призначений тест для TestUser
+    // Add information about the assigned test for TestUser
     if (user.email === 'TestUser@test.com') {
         const configDocRef = doc(db, 'configs', 'app_settings');
         const configDoc = await getDoc(configDocRef);
@@ -138,11 +138,11 @@ async function loadUsers() {
     });
 
     allUsersData = await Promise.all(usersPromises);
-    renderUsers(); // Перше відображення з сортуванням за замовчуванням
+    renderUsers(); // First render with default sorting
 }
 
 /**
- * Відображає список користувачів на основі `allUsersData` та поточного сортування.
+ * Renders the list of users based on `allUsersData` and the current sorting.
  */
 function renderUsers() {
     if (!usersListContainer) return;
@@ -156,7 +156,7 @@ function renderUsers() {
         filteredUsers = allUsersData.filter(user => user.email && user.email.toLowerCase().includes(filterText));
     }
 
-    // Сортування
+    // Sorting
     filteredUsers.sort((a, b) => {
         const valA = a[userSort.field] || 0;
         const valB = b[userSort.field] || 0;
@@ -167,7 +167,7 @@ function renderUsers() {
         }
     });
 
-    usersListContainer.innerHTML = ""; // Очищуємо контейнер
+    usersListContainer.innerHTML = ""; // Clear the container
     let totalUsers = 0;
     let totalAIRequests = 0;
     let totalCharsSentGlobal = 0;
@@ -182,11 +182,11 @@ function renderUsers() {
       totalTokensGlobal += user.stats.approxTokens || 0;
 
     const userCard = document.createElement("div");
-    // Додаємо клас .user-card-container для застосування адаптивних стилів з admin.html
+    // Add .user-card-container class to apply responsive styles from admin.html
     userCard.className = "user-card-container bg-white p-4 rounded-lg shadow-md";
     userCard.innerHTML = `
-      <div class="user-info flex-1 min-w-0"> <!-- flex-1 min-w-0 дозволяє блоку займати доступний простір і не виходити за межі -->
-        <div class="break-words"> <!-- break-words дозволяє переносити довгі слова/email -->
+      <div class="user-info flex-1 min-w-0"> <!-- flex-1 min-w-0 allows the block to take available space and not overflow -->
+        <div class="break-words"> <!-- break-words allows long words/emails to wrap -->
           <p class="font-bold text-lg text-gray-800">${user.email || userId}</p>
           <p class="text-sm text-gray-600">Rolle: <span class="font-semibold ${user.role === 'admin' ? 'text-purple-600' : 'text-gray-700'}">${user.role || 'user'}</span></p>
           <p class="text-xs text-gray-400 mt-1">Erstellt am: ${user.createdAt ? new Date(user.createdAt).toLocaleDateString("de-DE") : 'Unbekannt'}</p>
@@ -200,7 +200,7 @@ function renderUsers() {
             </div>
         ` : '<div class="mt-3"><span class="text-xs text-gray-400">(Testbenutzer)</span></div>'}
       </div>
-      <div class="user-stats text-right flex-shrink-0"> <!-- flex-shrink-0 запобігає стисканню цього блоку -->
+      <div class="user-stats text-right flex-shrink-0"> <!-- flex-shrink-0 prevents this block from shrinking -->
         <p>Tests absolviert: <span class="font-bold">${user.stats.testsTaken}</span></p>
         <p class="text-sm text-gray-500">Letzte Aktivität: ${user.stats.lastActivity}</p>
         <p class="text-sm text-blue-700">Durchschnittl. Bestehensquote: <span class="font-bold">${user.stats.avgPercent}%</span></p>
@@ -215,7 +215,7 @@ function renderUsers() {
     usersListContainer.appendChild(userCard);
   });
 
-    // Вивід глобальної статистики
+    // Output global statistics
     const globalStatsContainer = document.getElementById('admin-global-stats');
     if (globalStatsContainer) {
       globalStatsContainer.innerHTML = `
@@ -226,7 +226,7 @@ function renderUsers() {
         <span>Token-Nutzung (gesamt): <span class="font-bold">~${totalTokensGlobal.toLocaleString('de-DE')}</span></span>
       `;
     }
-  // Додаємо обробники для кнопок скидання пароля
+  // Add handlers for password reset buttons
   document.querySelectorAll('.btn-reset-password').forEach(button => {
     button.addEventListener('click', async (e) => {
         const email = e.target.dataset.email;
@@ -242,7 +242,7 @@ function renderUsers() {
     });
   });
 
-  // Обробник для кнопки збереження призначеного тесту
+  // Handler for the save assigned test button
   document.querySelectorAll('.btn-save-limit').forEach(button => {
     button.addEventListener('click', async (e) => {
         const inputElement = e.target.closest('div').querySelector('input');
@@ -285,18 +285,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    // Перевірка, чи користувач є адміном, перш ніж завантажувати дані
+    // Check if the user is an admin before loading data
     const userDocRef = doc(db, "users", user.uid);
     getDoc(userDocRef).then(userDoc => {
         if (userDoc.exists() && userDoc.data().role === 'admin') {
-            loadUsers(); // Завантажуємо статистику користувачів
-            loadTestsStats(); // Завантажуємо статистику тестів
+            loadUsers(); // Load user statistics
+            loadTestsStats(); // Load test statistics
         } else {
             if (usersListContainer) {
                 usersListContainer.innerHTML = '<p class="text-red-600">Sie haben keine Berechtigung, auf diese Seite zuzugreifen.</p>';
             }
             if (testsStatsContainer) {
-                testsStatsContainer.innerHTML = ''; // Очищуємо, якщо немає прав
+                testsStatsContainer.innerHTML = ''; // Clear if no permissions
             }
         }
     });
@@ -306,14 +306,14 @@ onAuthStateChanged(auth, (user) => {
 });
 
 /**
- * Завантажує статистику по кожному тесту.
+ * Loads statistics for each test.
  */
 async function loadTestsStats() {
     if (!testsStatsContainer) return;
     testsStatsContainer.innerHTML = '<p>Teststatistiken werden geladen...</p>';
 
     try {
-        // 1. Отримуємо всі тести
+        // 1. Get all tests
         const testsRef = collection(db, `artifacts/${appId}/public/data/tests`);
         const testsSnap = await getDocs(testsRef);
         const tests = {};
@@ -321,7 +321,7 @@ async function loadTestsStats() {
             tests[doc.id] = doc.data();
         });
 
-        // 2. Отримуємо всі публічні результати
+        // 2. Get all public results
         const resultsRef = collection(db, `artifacts/${appId}/public/data/public_results`);
         const resultsSnap = await getDocs(resultsRef);
 
@@ -340,7 +340,7 @@ async function loadTestsStats() {
             stats[testId].totalPercent += percent;
         });
 
-        // 3. Рендеримо картки
+        // 3. Render the cards
         if (Object.keys(tests).length === 0) {
             testsStatsContainer.innerHTML = '<p>Keine Tests zur Analyse gefunden.</p>';
             return;

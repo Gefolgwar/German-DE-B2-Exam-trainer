@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Вхід - B2 Test Trainer</title>
+    <title>Login - B2 Test Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -41,7 +41,7 @@
             <label
               for="password"
               class="block text-sm font-medium text-gray-700"
-              >Пароль</label
+              >Password</label
             >
             <input
               type="password"
@@ -85,7 +85,7 @@
         </button>
 
         <div class="mt-6 text-center text-sm text-gray-600">
-          Немає облікового запису?
+          Don't have an account?
           <a
             href="register.html"
             class="font-medium text-blue-600 hover:text-blue-500"
@@ -127,7 +127,7 @@
       </section>
     </div>
 
-    <!-- Firebase SDKs та Логіка -->
+    <!-- Firebase SDKs and Logic -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import {
@@ -137,7 +137,7 @@
         sendPasswordResetEmail,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 
-      // Використання глобальної конфігурації
+      // Using global configuration
       const firebaseConfig =
         typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
@@ -162,10 +162,10 @@
       );
       const testUserBtn = document.getElementById("login-as-testuser-btn");
 
-      // Якщо користувач вже залогінений, перенаправляємо його на головну
+      // If the user is already logged in, redirect to the main page
       onAuthStateChanged(auth, (user) => {
         if (user) {
-          // Перевіряємо, чи ми вже не на цільовій сторінці, щоб уникнути зайвого перенаправлення
+          // Check if we are not already on the target page to avoid unnecessary redirection
           if (!window.location.href.includes("index.html")) {
             window.location.href = "index.html";
           }
@@ -175,7 +175,7 @@
       loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        // Скидаємо повідомлення про помилку перед новою спробою
+        // Reset the error message before a new attempt
         errorMessage.classList.add("hidden");
         errorMessage.textContent = "";
 
@@ -184,21 +184,22 @@
 
         try {
           await signInWithEmailAndPassword(auth, email, password);
-          // onAuthStateChanged спрацює і перенаправить на index.html
+          // onAuthStateChanged will fire and redirect to index.html
         } catch (error) {
-          // Обробка помилок входу
-          let errorText = "Помилка входу: невірний email або пароль.";
+          // Handle login errors
+          let errorText = "Login error: incorrect email or password.";
           console.error("Login error:", error.code, error.message);
 
           if (
             error.code === "auth/user-not-found" ||
             error.code === "auth/wrong-password"
           ) {
-            errorText = "Невірний email або пароль. Перевірте свої дані.";
+            errorText =
+              "Incorrect email or password. Please check your credentials.";
           } else if (error.code === "auth/invalid-email") {
-            errorText = "Некоректний формат електронної пошти.";
+            errorText = "Invalid email format.";
           } else {
-            errorText = `Помилка: ${error.message}`;
+            errorText = `Error: ${error.message}`;
           }
 
           errorMessage.textContent = errorText;
@@ -206,28 +207,28 @@
         }
       });
 
-      // Обробник для посилання "Забули пароль?"
+      // Handler for "Forgot password?" link
       forgotPasswordLink.addEventListener("click", async (e) => {
         e.preventDefault();
         const email = prompt(
-          "Будь ласка, введіть вашу електронну адресу, щоб скинути пароль:"
+          "Please enter your email address to reset your password:"
         );
         if (email) {
           try {
             await sendPasswordResetEmail(auth, email);
             alert(
-              `Лист для відновлення пароля надіслано на ${email}. Будь ласка, перевірте свою поштову скриньку (не забудьте перевірити спам).`
+              `A password reset email has been sent to ${email}. Please check your inbox (and don't forget to check spam).`
             );
             errorMessage.classList.add("hidden");
           } catch (error) {
             console.error("Password reset error:", error);
-            errorMessage.textContent = `Помилка: не вдалося надіслати лист. Перевірте правильність email.`;
+            errorMessage.textContent = `Error: could not send email. Please check if the email is correct.`;
             errorMessage.classList.remove("hidden");
           }
         }
       });
 
-      // Обробник для кнопки "Спробувати без реєстрації"
+      // Handler for "Try without registration" button
       if (testUserBtn) {
         testUserBtn.addEventListener("click", async () => {
           try {
@@ -236,9 +237,9 @@
               "TestUser@test.com",
               "1234КУцй!"
             );
-            // onAuthStateChanged спрацює і перенаправить на index.html
+            // onAuthStateChanged will fire and redirect to index.html
           } catch (error) {
-            errorMessage.textContent = `Помилка входу тестового користувача: ${error.message}. Переконайтесь, що користувач створений у Firebase.`;
+            errorMessage.textContent = `Test user login error: ${error.message}. Make sure the user is created in Firebase.`;
             errorMessage.classList.remove("hidden");
           }
         });

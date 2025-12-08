@@ -1,13 +1,13 @@
 {
   "test_id": "b2-test-1-lesen-teil-1-v2",
-  "title": "Lesen Teil 1: Блог-Коментарі (25 Хв)",
+  "title": "Lesen Teil 1: Blog Comments (25 Min)",
   "duration_minutes": 25,
   "passing_score_points": 2,
   "questions_total": 3,
   "parts": [
     {
       "part_id": "lesen-teil-1-kommentare",
-      "instruction": "Lesen Sie zuerst die fünf Texte (1–3) im блоці 'Тексти для читання'. Lesen Sie dann die десять Überschriften/завдань und entscheiden Sie, какая Überschrift am besten passt. Tragen Sie Ihre Lösungen bei den Aufgaben 1–3 ein.",
+      "instruction": "First, read the five texts (1–3) in the 'Reading Texts' block. Then read the ten headings/tasks and decide which heading fits best. Enter your solutions for tasks 1–3.",
       "media": {
         "texts": [
           {
@@ -37,7 +37,7 @@
             "C. Kommentar über die Notwendigkeit internationaler Abkommen."
           ],
           "correct_answer_index": 1,
-          "explanation": "Текст 1 безпосередньо стосується ролі бізнесу та промисловості."
+          "explanation": "Text 1 directly relates to the role of business and industry."
         },
         {
           "id": "2",
@@ -49,7 +49,7 @@
             "C. 'Es fehlt noch eine genaue Kostenanalyse.'"
           ],
           "correct_answer_index": 1,
-          "explanation": "Варіант B явно висловлює негативне ставлення та відмову від заходів."
+          "explanation": "Option B clearly expresses a negative attitude and rejection of the measures."
         },
         {
           "id": "3",
@@ -61,7 +61,7 @@
             "C. ... schlechte Wetter."
           ],
           "correct_answer_index": 1,
-          "explanation": "Прийменник 'Trotz' вимагає Genitiv (кого? чого?). Правильна відмінкова форма: 'Trotz des schlechten Wetters'."
+          "explanation": "The preposition 'Trotz' requires the Genitive case. The correct declension is: 'Trotz des schlechten Wetters'."
         }
       ]
     }

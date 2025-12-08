@@ -1,7 +1,7 @@
 import { getDoc, doc, collection, query } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 import { renderNavbar } from '../components/Navbar.js';
 
-// --- DOM Елементи ---
+// --- DOM Elements ---
 const elements = {
     testSummaryTitle: document.getElementById('test-summary-title'),
     resultPoints: document.getElementById('result-points'),
@@ -15,7 +15,7 @@ const elements = {
     statsByLevelContainer: document.getElementById('stats-by-level-container'), 
 };
 
-// Глобальний стан для результатів
+// Global state for results
 let currentResultData = null;
 let currentTestSnapshot = null;
 let incorrectExercises = [];
@@ -31,30 +31,30 @@ function formatTime(seconds) {
 }
 
 /**
- * Генерує HTML-розмітку для однієї вправи у звіті.
+ * Generates HTML markup for a single exercise in the report.
  */
 function generateExerciseHtml({ q, originalIndex }) {
-    // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ ---
-    // Знаходимо результат за його індексом, а не за ID, щоб уникнути плутанини з дублікатами ID.
-    // Ми припускаємо, що detailedResults зберігається в тому ж порядку, що і flatExercises.
+    // --- KEY FIX ---
+    // Find the result by its index, not by ID, to avoid confusion with duplicate IDs.
+    // We assume that detailedResults is stored in the same order as flatExercises.
     const detailedResult = currentResultData.detailedResults[originalIndex];
     if (!detailedResult) return '';
 
-    // Знаходимо блок і частину, до якої належить вправа
-    // --- ВИПРАВЛЕННЯ: Використовуємо збережені block_name та teil_name ---
+    // Find the block and part to which the exercise belongs
+    // --- FIX: Use the saved block_name and teil_name ---
     const blockTitle = q.block_name || 'Unbekannter Block';
     const teilTitle = q.teil_name || 'Unbekannter Teil';
 
     const isCorrect = detailedResult.isCorrect;
     const userAnswer = detailedResult.userInput;
     
-    // --- ЛОГІКА ОТРИМАННЯ ПОЯСНЕННЯ ---
+    // --- LOGIC FOR GETTING THE EXPLANATION ---
     let explanation = 'Erklärung nicht vorhanden.';
     if (q.type === 'text_input') {
-        // Для вправ, що перевіряються ШІ, пояснення береться ТІЛЬКИ з результату.
+        // For AI-checked exercises, the explanation is taken ONLY from the result.
         explanation = detailedResult.explanation || 'Erklärung von der KI nicht erhalten.';
     } else {
-        // Для інших типів вправ, беремо пояснення з результату, або з шаблону тесту.
+        // For other exercise types, take the explanation from the result or from the test template.
         explanation = detailedResult.explanation || q.explanation || 'Erklärung nicht vorhanden.';
     }
 
@@ -126,8 +126,8 @@ function generateExerciseHtml({ q, originalIndex }) {
 }
 
 /**
- * Завантажує результат тесту та сам тест (snapshot) з Firestore.
- * @param {string} resultId - ID результату тесту.
+ * Loads the test result and the test itself (snapshot) from Firestore.
+ * @param {string} resultId - The ID of the test result.
  */
 async function loadResultData(resultId) {
     if (!window.db) {
@@ -137,7 +137,7 @@ async function loadResultData(resultId) {
     }
     
     if (!window.userId) {
-        // Це мало б не трапитися, якщо isAuthReady спрацював, але на всяк випадок
+        // This shouldn't happen if isAuthReady has fired, but just in case
         throw new Error("User ID is not available.");
     }
     
@@ -151,7 +151,7 @@ async function loadResultData(resultId) {
             currentTestSnapshot = currentResultData.testSnapshot;
             renderSummary();
         } else {
-             // Спроба завантажити з localStorage як запасний варіант
+             // Try to load from localStorage as a fallback
             const localResult = localStorage.getItem('b2_last_result_data');
             if (localResult) {
                 currentResultData = JSON.parse(localResult);
@@ -169,7 +169,7 @@ async function loadResultData(resultId) {
 
 
 /**
- * Відображає зведену інформацію про результат.
+ * Displays summary information about the result.
  */
 function renderSummary() {
     if (!currentResultData || !currentTestSnapshot) return;
@@ -177,7 +177,7 @@ function renderSummary() {
     const { totalExercises, timeSpentSeconds, detailedResults, testTitle, timestamp, blockTimes, teilTimes, exerciseTimes } = currentResultData;
     const passingScore = currentTestSnapshot.passing_score_points || 0;
 
-    // --- Створюємо "плаский" список вправ для легкого доступу ---
+    // --- Create a flat list of exercises for easy access ---
     const flatExercises = [];
     let totalTestPoints = 0;
     currentTestSnapshot.blocks.forEach(block => {
@@ -188,7 +188,7 @@ function renderSummary() {
                     ...ex, 
                     id: uniqueId, 
                     originalIndex: flatExercises.length,
-                    block_id: block.block_id, // <-- ВАЖЛИВЕ ВИПРАВЛЕННЯ
+                    block_id: block.block_id, // <-- IMPORTANT FIX
                     teil_id: teil.teil_id
                 });
                 totalTestPoints += ex.points || 0;
@@ -196,7 +196,7 @@ function renderSummary() {
         });
     });
 
-    // --- Розрахунок результатів на основі балів ---
+    // --- Calculate results based on points ---
     let userScore = 0;
     let correctAnswersCount = 0;
     detailedResults.forEach((result, index) => {
@@ -219,8 +219,8 @@ function renderSummary() {
     elements.resultIncorrect.textContent = incorrectCount;
     elements.resultIdDisplay.textContent = `Benutzer-ID: ${window.userId}`;
 
-    // --- Статистика за рівнями ---
-    // Створюємо "плаский" список вправ, як і в main.js, щоб мати доступ до індексів
+    // --- Statistics by level ---
+    // Create a flat list of exercises, as in main.js, to access indices
     let statsHtml = `
         <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">Statistik nach Niveaus</h3>
         <div class="bg-white p-4 rounded-xl shadow-md">
@@ -234,7 +234,7 @@ function renderSummary() {
     currentTestSnapshot.blocks.forEach(block => {
         const blockTime = blockTimes[block.block_id] ? blockTimes[block.block_id].timeSpent / 1000 : 0;
         
-        // Розраховуємо загальні бали для блоку перед його відображенням
+        // Calculate total points for the block before displaying it
         const blockExercises = flatExercises.filter(ex => ex.block_id === block.block_id);
         const blockTotalPoints = blockExercises.reduce((sum, ex) => sum + parseFloat(ex.points || 0), 0);
         const blockUserPoints = blockExercises.reduce((sum, ex) => sum + (detailedResults[ex.originalIndex]?.isCorrect ? parseFloat(ex.points || 0) : 0), 0);
@@ -251,7 +251,7 @@ function renderSummary() {
                 return acc;
             }, { points: 0, maxPoints: 0 });
             
-            // Відображаємо блок тільки один раз, перед першим "Teil"
+            // Display the block only once, before the first "Teil"
             if (block.teils.indexOf(teil) === 0) {
                  statsHtml += `
                     <div class="grid grid-cols-3 gap-4 items-center py-2 border-b border-gray-200">
@@ -274,10 +274,10 @@ function renderSummary() {
     statsHtml += `</div>`; // Close the main bg-white div
     elements.statsByLevelContainer.innerHTML = statsHtml;
 
-    // --- Логіка для перегляду помилок ---
-    // Використовуємо вже створений `flatExercises`
+    // --- Logic for reviewing mistakes ---
+    // Use the already created `flatExercises`
     incorrectExercises = detailedResults
-        .map((r, index) => ({ result: r, index })) // Додаємо індекс до кожного результату
+        .map((r, index) => ({ result: r, index })) // Add the index to each result
         .filter(item => !item.result.isCorrect)
         .map(item => {
             const exerciseData = flatExercises[item.index];
@@ -293,7 +293,7 @@ function renderSummary() {
         elements.detailedReportContainer.innerHTML = `<h3 class="text-2xl font-bold text-gray-800 mb-4">${reportTitle}</h3>` +
             currentReportList.map(generateExerciseHtml).join('');
         
-        // Логіка перегляду (всі питання / лише помилки)
+        // Review logic (all questions / only mistakes)
         let isReviewingAll = false;
         
         if (elements.reviewLink) {
@@ -304,12 +304,12 @@ function renderSummary() {
                 isReviewingAll = !isReviewingAll;
                 
                 if (isReviewingAll) {
-                    // Показуємо всі питання
+                    // Show all questions
                     currentReportList = flatExercises.map(q => ({ q, originalIndex: q.originalIndex }));
                     reportTitle = `Detaillierter Bericht: Alle ${totalExercises} Übungen`;
                     elements.reviewLink.textContent = '❌ Richtige Antworten ausblenden';
                 } else {
-                    // Показуємо лише помилки
+                    // Show only mistakes
                     currentReportList = incorrectExercises;
                     reportTitle = incorrectExercises.length > 0 ? `Detaillierter Bericht über ${incorrectExercises.length} Fehler` : '🎉 Herzlichen Glückwunsch! Alle Antworten sind richtig.';
                     elements.reviewLink.textContent = '🔍 Alle Übungen ansehen';
@@ -320,16 +320,16 @@ function renderSummary() {
             });
         }}
 
-// --- Ініціалізація ---
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Рендеримо навігаційну панель
+    // Render the navigation bar
     renderNavbar();
 
-    // Отримуємо ID результату з URL або localStorage
+    // Get the result ID from the URL or localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const resultId = urlParams.get('resultId') || localStorage.getItem('b2_last_result_id');
 
-    // Якщо Firebase готовий, завантажуємо дані
+    // If Firebase is ready, load the data
     if (window.isAuthReady) {
         if (resultId) {
              loadResultData(resultId);
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("No result ID provided. Cannot load test results.");
         }
     } else {
-        // Чекаємо готовності Firebase, а потім завантажуємо дані
+        // Wait for Firebase to be ready, then load the data
         window.addEventListener('firestoreReady', () => {
              if (resultId) {
                  loadResultData(resultId);

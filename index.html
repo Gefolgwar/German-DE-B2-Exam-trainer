@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>B2 German Exam Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* Базовий шрифт без засічок для чистоти */
+      /* Basic sans-serif font for clarity */
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -30,12 +30,12 @@
         persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      // Глобальні змінні, доступні для main.js
+      // Global variables available for main.js
       window.db = null;
       window.userId = null;
-      window.userRole = "user"; // За замовчуванням
+      window.userRole = "user"; // Default
       window.isAuthReady = false;
-      window.isTestUser = false; // Додаємо прапорець для тестового користувача
+      window.isTestUser = false; // Add a flag for the test user
 
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-app-id";
@@ -58,38 +58,38 @@
           ? __initial_auth_token
           : null;
 
-      // Ініціалізація та Аутентифікація
+      // Initialization and Authentication
       async function initializeFirebase() {
         try {
           if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
             console.error(
               "Firebase config is missing. Using local storage fallback."
             );
-            return; // Вихід, якщо конфігурації немає
+            return; // Exit if config is missing
           }
 
           const app = initializeApp(firebaseConfig);
-          // Ініціалізація Firestore з кешуванням
+          // Initialize Firestore with caching
           window.db = initializeFirestore(app, {
             localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
           });
 
           window.auth = getAuth(app);
 
-          // Встановлюємо рівень логування для відладки
+          // Set log level for debugging
           // setLogLevel('Debug');
 
-          // Слухач зміни стану аутентифікації
+          // Authentication state change listener
           onAuthStateChanged(window.auth, async (user) => {
             if (user) {
-              // Користувач увійшов
+              // User is logged in
               window.isTestUser = user.email === "TestUser@test.com";
               window.userId = user.uid;
-              // Отримуємо роль користувача і зберігаємо її
+              // Get user role and save it
               const userDocRef = doc(window.db, "users", user.uid);
               const userDoc = await getDoc(userDocRef);
               if (userDoc.exists() && userDoc.data().role) {
-                window.userRole = userDoc.data().role; // Зберігаємо роль (admin, test, user)
+                window.userRole = userDoc.data().role; // Save the role (admin, test, user)
               }
               window.isAuthReady = true;
               console.log(
@@ -100,10 +100,10 @@
                 "Is Test User:",
                 window.isTestUser
               );
-              // Створення глобальної події готовності
+              // Create a global readiness event
               window.dispatchEvent(new CustomEvent("firestoreReady"));
             } else {
-              // Користувач не увійшов, перенаправляємо на сторінку входу
+              // User is not logged in, redirect to login page
               window.location.href = "login.html";
             }
           });
@@ -115,10 +115,10 @@
       initializeFirebase();
       console.log("Firebase Init script loaded.");
 
-      // Функція виходу
+      // Logout function
       window.logout = async () => {
         await signOut(getAuth());
-        // onAuthStateChanged автоматично перенаправить на login.html
+        // onAuthStateChanged will automatically redirect to login.html
       };
     </script>
   </head>
@@ -158,7 +158,7 @@
             >KI-Beispiel</a
           >
           <script>
-            // Показати "Приклад ШІ" та "Адмін-панель" лише для адміна
+            // Show "AI Example" and "Admin Panel" only for admin
             document.addEventListener("DOMContentLoaded", function () {
               function showAdminElements() {
                 if (window.userRole === "admin") {
@@ -220,14 +220,14 @@
             id="create-new-test-btn"
             class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 text-center"
           >
-            ➕ Neuen Test erstellen
+            ➕ Create New Test
           </a>
 
           <label
             for="upload-json-file"
             class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 cursor-pointer text-center"
           >
-            ⬆️ JSON hochladen
+            ⬆️ Upload JSON
             <input
               type="file"
               id="upload-json-file"
@@ -242,20 +242,21 @@
         <h3 class="text-2xl font-bold text-gray-700 mb-4 border-b pb-2">
           Verfügbare Tests
           <span
+            id="sorting-controls"
             class="text-sm font-normal block md:inline-block mt-2 md:mt-0 md:ml-4 space-x-2"
           >
             <button
               id="sort-by-completions"
               class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg"
             >
-              Nach Abschlüssen sortieren
+              Sort by Completions
               <span id="completions-sort-icon">▼</span>
             </button>
             <button
               id="sort-by-score"
               class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg"
             >
-              Nach Durchschnittsnote sortieren
+              Sort by Average Score
               <span id="score-sort-icon">▼</span>
             </button>
           </span>
@@ -263,7 +264,7 @@
 
         <div id="test-list-container" class="space-y-4">
           <div class="text-center p-8 bg-white rounded-xl shadow">
-            Завантаження даних...
+            Loading data...
           </div>
         </div>
       </section>

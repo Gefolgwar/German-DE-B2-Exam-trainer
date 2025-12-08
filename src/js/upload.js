@@ -1,16 +1,16 @@
 import { doc, getDoc, setDoc, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-// --- ДОПОМІЖНІ ФУНКЦІЇ ---
+// --- HELPER FUNCTIONS ---
 
 /**
- * Генерує унікальний ID, якщо він не вказаний.
+ * Generates a unique ID if one is not provided.
  */
 function generateUniqueId() {
     return 'test-' + Date.now() + '-' + Math.random().toString(16).slice(2);
 }
 
 /**
- * Відображає повідомлення у messageBox.
+ * Displays a message in the messageBox.
  */
 function showMessage(message, type = 'success') {
     const messageBox = document.getElementById('message-box');
@@ -38,7 +38,7 @@ window.removeElement = function(element) {
 }
 
 
-// --- СТАН ФОРМИ ТА DOM ЕЛЕМЕНТИ ---
+// --- FORM STATE AND DOM ELEMENTS ---
 
 const elements = {
     form: document.getElementById('test-upload-form'),
@@ -47,15 +47,15 @@ const elements = {
     pageTitle: document.getElementById('upload-page-title'),
 };
 
-window.currentBlockIndex = 0; // Лічильник для унікальних ID блоків
-let isFormDirty = false; // Прапорець для відстеження змін у формі
+window.currentBlockIndex = 0; // Counter for unique block IDs
+let isFormDirty = false; // Flag to track form changes
 
 // =========================================================================
-// === Функції Генерації HTML ===
+// === HTML Generation Functions ===
 // =========================================================================
 
 /**
- * Генерує HTML-розмітку для однієї вправи
+ * Generates HTML markup for a single exercise.
  */
 function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
     const exId = exerciseData.id || `ex-${teilId}-${exerciseIndex}-${Math.random().toString(16).slice(2)}`;
@@ -65,7 +65,7 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
     const correctIndex = exerciseData.correct_answer_index;
     const explanation = exerciseData.explanation || "";
     const expectedAnswerText = exerciseData.expected_answer_text || ""; // New field for text_input type
-    const taskText = exerciseData.task_text || ""; // Нове поле для завдання
+    const taskText = exerciseData.task_text || ""; // New field for the task
     const points = exerciseData.points || 0;
     
     return `
@@ -168,7 +168,7 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
 }
 
 /**
- * Обробляє зміну типу вправи, показуючи/ховаючи відповідні поля.
+ * Handles exercise type change, showing/hiding relevant fields.
  */
 window.exerciseTypeChanged = function(exerciseElement) {
     const selectedType = exerciseElement.querySelector('select[name="exercise_type"]').value;
@@ -178,13 +178,13 @@ window.exerciseTypeChanged = function(exerciseElement) {
     if (selectedType === 'single_choice') {
         optionsSection.style.display = 'block';
         expectedAnswerSection.style.display = 'none';
-        // Ensure required for options if switching to single_choice
+        // Make options required when switching to single_choice
         optionsSection.querySelectorAll('input[name="option_text"]').forEach(input => input.required = true);
         expectedAnswerSection.querySelectorAll('textarea').forEach(textarea => textarea.required = false);
     } else if (selectedType === 'text_input') {
         optionsSection.style.display = 'none';
         expectedAnswerSection.style.display = 'block';
-        // Ensure required for expected_answer_text if switching to text_input
+        // Make expected_answer_text required when switching to text_input
         optionsSection.querySelectorAll('input[name="option_text"]').forEach(input => input.required = false);
         expectedAnswerSection.querySelector('textarea[name="expected_answer_text"]').required = true;
     }
@@ -193,7 +193,7 @@ window.exerciseTypeChanged = function(exerciseElement) {
 };
 
 /**
- * Додає новий варіант відповіді до вправи.
+ * Adds a new answer option to the exercise.
  */
 window.addOptionToExercise = function(exerciseElement) {
     const optionsContainer = exerciseElement.querySelector('.options-container');
@@ -212,7 +212,7 @@ window.addOptionToExercise = function(exerciseElement) {
 }
 
 /**
- * Додає нове поле для введення медіа (аудіо/зображення).
+ * Adds a new input field for media (audio/image).
  */
 window.addMediaInput = function(button, type) {
     const container = button.previousElementSibling;
@@ -229,7 +229,7 @@ window.addMediaInput = function(button, type) {
 }
 
 /**
- * Генерує HTML-розмітку для блоку
+ * Generates HTML markup for a block.
  */
 function createBlockCard(blockIndex, blockData = {}) {
     const card = document.createElement('div');
@@ -288,7 +288,7 @@ function createBlockCard(blockIndex, blockData = {}) {
 }
 
 /**
- * Генерує HTML-розмітку для частини (Teil)
+ * Generates HTML markup for a part (Teil).
  */
 function createTeilCard(blockId, teilIndex, teilData = {}) {
     const card = document.createElement('div');
@@ -350,14 +350,14 @@ function createTeilCard(blockId, teilIndex, teilData = {}) {
 
 
 /**
- * Додає новий блок.
+ * Adds a new block.
  */
 function addBlock(blockData = {}) {
     window.currentBlockIndex = (window.currentBlockIndex || 0) + 1;
     const card = createBlockCard(window.currentBlockIndex, blockData);
     elements.blocksContainer.appendChild(card);
     
-    // Якщо створюємо новий блок, додаємо в нього один порожній Teil
+    // If creating a new block, add one empty Teil to it
     if (!blockData.teils || blockData.teils.length === 0) {
         addTeilToBlock(card);
     }
@@ -368,7 +368,7 @@ function addBlock(blockData = {}) {
 }
 
 /**
- * Додає новий Teil до певного блоку.
+ * Adds a new Teil to a specific block.
  */
 window.addTeilToBlock = function(blockCard) {
     const teilsList = blockCard.querySelector('.teils-list');
@@ -379,13 +379,13 @@ window.addTeilToBlock = function(blockCard) {
     const teilCard = createTeilCard(blockId, currentTeilCount + 1, {});
     teilsList.appendChild(teilCard);
 
-    // Додаємо одну вправу до нового Teil
+    // Add one exercise to the new Teil
     addExerciseToTeil(teilCard);
     updateAllPoints();
 };
 
 /**
- * Додає нову вправу до певного Teil.
+ * Adds a new exercise to a specific Teil.
  */
 window.addExerciseToTeil = function(teilCard) {
     const exercisesList = teilCard.querySelector('.exercises-list');
@@ -406,7 +406,7 @@ window.addExerciseToTeil = function(teilCard) {
 };
 
 /**
- * Додає нову вправу після існуючої.
+ * Adds a new exercise after an existing one.
  */
 window.addExerciseAfter = function(buttonElement) {
     const teilCard = buttonElement.closest('.teil-card');
@@ -414,7 +414,7 @@ window.addExerciseAfter = function(buttonElement) {
     const teilId = teilCard.dataset.teilId;
     const dividerElement = buttonElement.parentElement; // This is the div.add-exercise-divider
 
-    // Create new exercise HTML. Index will be fixed by updateAllPoints.
+    // Create new exercise HTML. The index will be fixed by updateAllPoints.
     const newExerciseHtmlString = createExerciseHtml(teilId, 0, {});
     const newDividerHtmlString = `
         <div class="add-exercise-divider text-center my-2">
@@ -440,7 +440,7 @@ window.addExerciseAfter = function(buttonElement) {
 };
 
 /**
- * Оновлює загальну тривалість тесту на основі тривалостей частин.
+ * Updates the total test duration based on the durations of the parts.
  */
 function updateTotalDuration() {
     let totalMinutes = 0;
@@ -454,7 +454,7 @@ function updateTotalDuration() {
 }
 
 /**
- * Оновлює загальний прохідний бал тесту на основі балів для проходження блоків.
+ * Updates the total passing score of the test based on the passing scores of the blocks.
  */
 function updateTotalPassingScore() {
     let totalScore = 0;
@@ -468,7 +468,7 @@ function updateTotalPassingScore() {
 }
 
 /**
- * Оновлює всі бали в формі.
+ * Updates all points in the form.
  */
 function updateAllPoints() {
     let totalTestPoints = 0;
@@ -481,7 +481,7 @@ function updateAllPoints() {
             let totalTeilPoints = 0;
             teilCard.querySelectorAll('.exercise-item').forEach(exerciseItem => {
                 exerciseCounter++;
-                // Оновлюємо наскрізний номер вправи
+                // Update the sequential exercise number
                 const exerciseTitle = exerciseItem.querySelector('h5');
                 if (exerciseTitle) {
                     exerciseTitle.textContent = `Übung ${exerciseCounter}`;
@@ -491,7 +491,7 @@ function updateAllPoints() {
                 totalTeilPoints += parseFloat(pointsInput.value) || 0;
             });
 
-            // Оновлюємо бали для Teil
+            // Update points for the Teil
             const teilPointsDisplay = teilCard.querySelector('span[name="teil_points_display"]');
             const teilPointsInput = teilCard.querySelector('input[name="teil_points"]');
             if (teilPointsDisplay) teilPointsDisplay.textContent = totalTeilPoints;
@@ -500,7 +500,7 @@ function updateAllPoints() {
             totalBlockPoints += totalTeilPoints;
         });
 
-        // Оновлюємо бали для Block
+        // Update points for the Block
         const blockPointsDisplay = blockCard.querySelector('span[name="block_points_display"]');
         if (blockPointsDisplay) {
             blockPointsDisplay.textContent = totalBlockPoints;
@@ -509,18 +509,18 @@ function updateAllPoints() {
         totalTestPoints += totalBlockPoints;
     });
 
-    // Тут можна оновити загальну кількість балів за тест, якщо є відповідне поле
+    // Here you can update the total test points if there is a corresponding field
 }
 
 
 // =========================================================================
-// === Функції Збереження та Завантаження (Firebase) ===
+// === Save and Load Functions (Firebase) ===
 // =========================================================================
 
 /**
- * Збирає дані з форми та форматує їх в об'єкт тесту.
- * @param {HTMLFormElement} form - Елемент форми.
- * @returns {object} - Об'єкт тесту.
+ * Collects data from the form and formats it into a test object.
+ * @param {HTMLFormElement} form - The form element.
+ * @returns {object} - The test object.
  */
 function serializeFormToTestObject(form) {
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -530,10 +530,10 @@ function serializeFormToTestObject(form) {
         title: form.querySelector('#test-title').value.trim() || "Unbenannter Test",
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10) || 0,
         passing_score_points: parseFloat(form.querySelector('#passing-score').value) || 0,
-        questions_total: 0, // Виправлено з exercises_total на questions_total
-        updatedAt: new Date().toISOString(), // Додаємо дату оновлення
+        questions_total: 0, // Corrected from exercises_total to questions_total
+        updatedAt: new Date().toISOString(), // Add update date
         blocks: [], 
-        userId: window.userId // Зберігаємо ID користувача, який створив тест
+        userId: window.userId // Save the ID of the user who created the test
     };
 
     const blockCards = form.querySelectorAll('.block-card');
@@ -560,13 +560,13 @@ function serializeFormToTestObject(form) {
                 exercises: []
             };
 
-            // Збір вправ
+            // Collect exercises
             teilCard.querySelectorAll('.exercise-item').forEach(exItem => {
                 const exId = exItem.dataset.exerciseId;
                 const exerciseType = exItem.querySelector('select[name="exercise_type"]').value;
                 const exerciseText = exItem.querySelector('textarea[name="exercise_text"]').value.trim();
                 const explanation = exItem.querySelector('textarea[name="explanation"]').value.trim();
-                const taskText = exItem.querySelector('textarea[name="task_text"]').value.trim(); // Отримуємо текст завдання
+                const taskText = exItem.querySelector('textarea[name="task_text"]').value.trim(); // Get the task text
                 const points = parseFloat(exItem.querySelector('input[name="exercise_points"]').value) || 0;
 
                 let exercise = {
@@ -574,12 +574,12 @@ function serializeFormToTestObject(form) {
                     text: exerciseText,
                     type: exerciseType,
                     points: points,
-                    task_text: taskText, // Зберігаємо текст завдання
+                    task_text: taskText, // Save the task text
                     explanation: explanation,
                     stimuli: {}
                 };
 
-                // Збір стимулів-текстів
+                // Collect text stimuli
                 exercise.stimuli.texts = [];
                 exItem.querySelectorAll('.text-stimulus-item textarea[name="stimulus_content"]').forEach(textarea => {
                     exercise.stimuli.texts.push({
@@ -589,7 +589,7 @@ function serializeFormToTestObject(form) {
                 });
                 if (exercise.stimuli.texts.length === 0) delete exercise.stimuli.texts;
 
-                // Збір стимулів-аудіо
+                // Collect audio stimuli
                 exercise.stimuli.audios = [];
                 exItem.querySelectorAll('input[name="stimulus_audio_url"]').forEach(input => {
                     if (input.value.trim()) {
@@ -601,7 +601,7 @@ function serializeFormToTestObject(form) {
                 });
                 if (exercise.stimuli.audios?.length === 0) delete exercise.stimuli.audios;
 
-                // Збір стимулів-зображень
+                // Collect image stimuli
                 exercise.stimuli.images = [];
                 exItem.querySelectorAll('input[name="stimulus_image_url"]').forEach(input => {
                     if (input.value.trim()) {
@@ -655,12 +655,12 @@ function serializeFormToTestObject(form) {
 }
 
 /**
- * Обробляє подання форми, зберігаючи дані у Firestore.
+ * Handles form submission, saving data to Firestore.
  */
 async function handleSubmit(event) {
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    // Скидаємо прапорець, оскільки дані будуть збережені
+    // Reset the flag, as the data will be saved
     isFormDirty = false;
 
     event.preventDefault();
@@ -671,7 +671,7 @@ async function handleSubmit(event) {
         return;
     }
 
-    // Спробуємо активувати мережу, якщо вона раптом "заснула"
+    // Try to enable the network if it has "fallen asleep"
     try {
         await enableNetwork(window.db);
     } catch (e) {
@@ -692,34 +692,34 @@ async function handleSubmit(event) {
         const testId = testObject.test_id;
         const docRef = doc(window.db, `artifacts/${appId}/public/data/tests`, testId);
         
-        showMessage(`3/3: Daten werden an Firebase gesendet...`, 'success');
-        // Зберігаємо об'єкт тесту у Firestore
+        showMessage(`3/3: Sending data to Firebase...`, 'success');
+        // Save the test object to Firestore
         await setDoc(docRef, testObject, { merge: true });
         
-        event.target.dataset.testId = testId; // Оновлюємо ID форми, якщо це був новий тест
+        event.target.dataset.testId = testId; // Update the form ID if it was a new test
         if (elements.pageTitle) {
             elements.pageTitle.textContent = `Test bearbeiten: ${testObject.title}`;
         }
 
         showMessage(`✅ Fertig! Test "${testObject.title}" erfolgreich in Firebase gespeichert.`, 'success');
 
-        // Очищаємо localStorage, оскільки тепер використовуємо URL-параметр для редагування
+        // Clear localStorage, as we now use a URL parameter for editing
         localStorage.removeItem('b2_test_to_edit'); 
 
-        // Перенаправляємо на головну сторінку через 2 секунди
+        // Redirect to the main page after 2 seconds
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 2000);
 
     } catch (error) {
-        console.error("Помилка при збереженні тесту:", error);
+        console.error("Error saving test:", error);
         showMessage(`Fehler beim Speichern des Tests: ${error.message}`, 'error');
     }
 }
 
 /**
- * Завантажує тест для редагування з Firestore.
- * @param {string} testId - ID тесту для завантаження.
+ * Loads a test for editing from Firestore.
+ * @param {string} testId - The ID of the test to load.
  */
 async function loadTestForEditing(testId, retries = 3) {
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -744,7 +744,7 @@ async function loadTestForEditing(testId, retries = 3) {
         if (docSnap.exists()) {
             const testToEdit = docSnap.data();
             
-            // --- Конвертація старого формату (якщо потрібно) ---
+            // --- Convert old format (if necessary) ---
             if (testToEdit.parts && !testToEdit.blocks) {
                 showMessage("Altes Testformat wird konvertiert...", 'success');
                 testToEdit.blocks = testToEdit.parts.map(part => ({
@@ -764,7 +764,7 @@ async function loadTestForEditing(testId, retries = 3) {
                 delete testToEdit.parts;
             }
 
-            // --- Заповнення форми ---
+            // --- Fill the form ---
             elements.form.dataset.testId = testId;
             if (elements.pageTitle) {
                 elements.pageTitle.textContent = `Test bearbeiten: ${testToEdit.title || ''}`;
@@ -774,16 +774,16 @@ async function loadTestForEditing(testId, retries = 3) {
             document.getElementById('passing-score').value = testToEdit.passing_score_points || '15';
 
             elements.blocksContainer.innerHTML = '';
-            window.currentBlockIndex = 0; // Скидаємо лічильник
+            window.currentBlockIndex = 0; // Reset the counter
 
-            // --- Рендеринг блоків ---
+            // --- Render blocks ---
             const blocks = testToEdit.blocks || [];
             if (blocks.length > 0) {
                 blocks.forEach((blockData, index) => {
                     addBlock(blockData);
                 });
             } else {
-                // Якщо блоків немає, додаємо один порожній
+                // If there are no blocks, add one empty one
                 addBlock();
             }
             
@@ -794,13 +794,13 @@ async function loadTestForEditing(testId, retries = 3) {
             
             updateTotalDuration();
             updateTotalPassingScore();
-            updateAllPoints(); // Рахуємо бали після завантаження
+            updateAllPoints(); // Calculate points after loading
             showMessage(`Test "${testToEdit.title}" zum Bearbeiten geladen.`, 'success');
 
         } else {
             showMessage(`Fehler: Test mit ID ${testId} nicht gefunden. Es wird ein neuer erstellt.`, 'error');
             localStorage.removeItem('b2_test_to_edit'); 
-            addBlock(); // Створюємо один порожній блок
+            addBlock(); // Create one empty block
         }
     } catch (error) {
         if (error.code === 'unavailable' && retries > 0) {
@@ -810,14 +810,14 @@ async function loadTestForEditing(testId, retries = 3) {
         }
         console.error("Error loading test from Firestore:", error);
         showMessage(`Fehler beim Laden des Tests zum Bearbeiten: ${error.message}`, 'error');
-        addBlock(); // Створюємо порожній блок у випадку помилки
+        addBlock(); // Create an empty block in case of an error
     }
 }
 
 
-// --- Ініціалізація ---
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Перевизначаємо window.removeElement для додавання оновлення балів
+    // Override window.removeElement to add point updates
     const originalRemoveElement = window.removeElement;
     window.removeElement = function(element) {
         if (element) {
@@ -838,24 +838,24 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addBlockBtn.addEventListener('click', () => addBlock()); 
     }
 
-    // Слухач для автоматичного оновлення
+    // Listener for automatic updates
     if (elements.form) {
         elements.form.addEventListener('input', (e) => {
             isFormDirty = true;
             if (e.target) {
-                // Оновлення тривалості
+                // Update duration
                 if (e.target.classList.contains('block-duration-input')) {
                     updateTotalDuration();
                 }
-                // Оновлення балів
+                // Update points
                 if (e.target.name === 'exercise_points') {
                     updateAllPoints();
                 }
-                // Оновлення прохідного балу
+                // Update passing score
                 if (e.target.classList.contains('block-passing-score-input')) {
                     updateTotalPassingScore();
                 }
-                // Оновлення вигляду вправи при зміні типу
+                // Update exercise view on type change
                 if (e.target.name === 'exercise_type') {
                     window.exerciseTypeChanged(e.target.closest('.exercise-item'));
                 }
@@ -864,7 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.form.addEventListener('submit', handleSubmit);
     }
     
-    // Перевіряємо URL-параметр для редагування
+    // Check URL parameter for editing
     const urlParams = new URLSearchParams(window.location.search);
     const idToEdit = urlParams.get('edit') || localStorage.getItem('b2_test_to_edit');
 
@@ -875,15 +875,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('firestoreReady', () => loadTestForEditing(idToEdit));
         }
     } else {
-        // Якщо не редагуємо, створюємо новий блок
+        // If not editing, create a new block
         addBlock();
     }
 
-    // Додаємо попередження при спробі покинути сторінку, якщо є незбережені зміни
+    // Add a warning when trying to leave the page if there are unsaved changes
     window.addEventListener('beforeunload', (e) => {
         if (isFormDirty) {
             e.preventDefault();
-            e.returnValue = 'Ihre Änderungen wurden möglicherweise nicht gespeichert.'; // Для сумісності
+            e.returnValue = 'Ihre Änderungen wurden möglicherweise nicht gespeichert.'; // For compatibility
             return 'Ihre Änderungen wurden möglicherweise nicht gespeichert.';
         }
     });

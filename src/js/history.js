@@ -16,17 +16,17 @@ const elements = {
 };
 
 /**
- * Стан сортування
+ * Sort state
  */
 let progressChartInstance = null;
 
 /**
- * Зберігає активну функцію відписки від onSnapshot.
+ * Stores the active unsubscribe function from onSnapshot.
  */
 let unsubscribeFromHistory = null;
 
 /**
- * Стан сортування
+ * Sort state
  */
 let currentSort = {
     field: 'timestamp',
@@ -44,18 +44,18 @@ window.deleteReport = async (reportId) => {
     try {
         const reportRef = doc(window.db, `artifacts/${appId}/users/${window.userId}/results`, reportId);
         await deleteDoc(reportRef);
-        // alert('Звіт успішно видалено!'); // Можна прибрати, бо список оновиться автоматично
+        // alert('Report successfully deleted!'); // Can be removed as the list updates automatically
         loadUserHistory(elements.startDateInput.value, elements.endDateInput.value);
     } catch (error) {
-        console.error('Помилка видалення звіту:', error);
+        console.error('Error deleting report:', error);
         alert('Fehler beim Löschen des Berichts: ' + error.message);
     }
 };
 
 /**
- * Форматує час у зручний для читання формат (Х год Х хв Х с).
- * @param {number} seconds - Час у секундах.
- * @returns {string} - Рядок у форматі '1 год 15 хв' або '30 с'.
+ * Formats time into a readable format (e.g., H:MM:SS or MM:SS).
+ * @param {number} totalSeconds - Time in seconds.
+ * @returns {string} - A string in H:MM:SS or MM:SS format.
  */
 function formatTime(totalSeconds) {
     const seconds = Math.round(totalSeconds);
@@ -78,8 +78,8 @@ function formatTime(totalSeconds) {
 }
 
 /**
- * Відображає графік прогресу користувача.
- * @param {Array} historyItems - Масив об'єктів історії.
+ * Renders the user's progress chart.
+ * @param {Array} historyItems - An array of history objects.
  */
 function renderProgressChart(historyItems) {
     if (!elements.progressChart || typeof Chart === 'undefined') {
@@ -87,12 +87,12 @@ function renderProgressChart(historyItems) {
         return;
     }
 
-    // Знищуємо попередній екземпляр графіка, якщо він існує
+    // Destroy the previous chart instance if it exists
     if (progressChartInstance) {
         progressChartInstance.destroy();
     }
 
-    // Сортуємо дані за датою за зростанням для коректного відображення на графіку
+    // Sort data by date in ascending order for correct chart display
     const sortedItems = [...historyItems].sort((a, b) => {
         const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
         const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
@@ -122,7 +122,7 @@ function renderProgressChart(historyItems) {
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderColor: 'rgba(59, 130, 246, 1)',
                 borderWidth: 2,
-                tension: 0.3, // Робить лінію плавнішою
+                tension: 0.3, // Makes the line smoother
                 pointBackgroundColor: 'rgba(59, 130, 246, 1)',
                 pointRadius: 4,
                 pointHoverRadius: 6,
@@ -145,8 +145,8 @@ function renderProgressChart(historyItems) {
 }
 
 /**
- * Відображає історію проходжень тестів.
- * @param {Array} historyItems - Масив об'єктів історії.
+ * Renders the test completion history.
+ * @param {Array} historyItems - An array of history objects.
  */
 function renderHistory(historyItems) {
     if (!elements.historyListContainer) return;
@@ -164,7 +164,7 @@ function renderHistory(historyItems) {
             let dateObject = null;
             let dateString = 'Unbekanntes Datum';
 
-            // --- Надійне визначення дати ---
+            // --- Reliable date determination ---
             if (item.timestamp) {
                 if (item.timestamp.toDate) {
                     dateObject = item.timestamp.toDate();
@@ -178,10 +178,10 @@ function renderHistory(historyItems) {
             if (dateObject instanceof Date && !isNaN(dateObject)) {
                 dateString = dateObject.toLocaleString('de-DE', {
                     year: 'numeric', month: 'short', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit' // Зменшено деталізацію до хвилин для компактності
+                    hour: '2-digit', minute: '2-digit' // Reduced detail to minutes for compactness
                 });
             }
-            // ---------------------------------
+            // -----------------------------
 
             const totalQuestions = item.totalExercises || 1;
             const correctPoints = item.correctPoints || 0;
@@ -194,16 +194,16 @@ function renderHistory(historyItems) {
             const scoreText = isPassed ? 'Bestanden' : 'Nicht bestanden';
             const scoreIcon = isPassed ? '✅' : '❌';
 
-            // --- Кнопка видалення тільки для адмінів ---
+            // --- Delete button for admins only ---
             const deleteButtonHtml = window.userRole === 'admin' 
                 ? `<button onclick="deleteReport('${item.id}')"
                            class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-md transition duration-200 w-24 delete-history-btn">
                        Löschen
                    </button>`
                 : '';
-            // -----------------------------------------
+            // -------------------------------------
 
-            // --- ОНОВЛЕНИЙ HTML КАРТКИ (КОМПАКТНА ВЕРСІЯ) ---
+            // --- UPDATED CARD HTML (COMPACT VERSION) ---
             historyHtml += `
                 <div class="bg-white p-4 rounded-xl shadow-md border-l-4 ${borderClass} flex justify-between items-center hover:shadow-lg transition duration-200">
                     
@@ -241,20 +241,20 @@ function renderHistory(historyItems) {
                         ${deleteButtonHtml}
                     </div>
                 </div>`;
-            // ----------------------------------------------------
+            // ---------------------------------------------
         });
     }
     elements.historyListContainer.innerHTML = historyHtml;
 }
 
 /**
- * Завантажує історію проходжень тестів поточного користувача з Firestore.
+ * Loads the current user's test completion history from Firestore.
  */
 async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, sortDir = currentSort.direction) {
-    // Скасовуємо попередню підписку, якщо вона існує, щоб уникнути множинних слухачів.
+    // Cancel the previous subscription if it exists to avoid multiple listeners.
     if (unsubscribeFromHistory) {
         unsubscribeFromHistory();
-        unsubscribeFromHistory = null; // Скидаємо змінну
+        unsubscribeFromHistory = null; // Reset the variable
     }
 
     const loadingHtml = `<div id="loading-message" class="text-center p-12 bg-white rounded-xl shadow-2xl border-t-4 border-blue-500 text-gray-600 font-medium">
@@ -274,12 +274,12 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
     const historyRef = collection(window.db, `artifacts/${appId}/users/${window.userId}/results`);
     let q = query(historyRef, orderBy(sortBy, sortDir));
 
-    // Створюємо нового слухача і зберігаємо функцію для його скасування.
+    // Create a new listener and save the function to cancel it.
     unsubscribeFromHistory = onSnapshot(q, (snapshot) => {
         let historyItems = [];
         snapshot.forEach(doc => historyItems.push({ id: doc.id, ...doc.data() }));
 
-        // Якщо задано фільтр по датах, фільтруємо по даті картки (рік-місяць-день, локальний час)
+        // If a date filter is set, filter by card date (year-month-day, local time)
         if (startDate || endDate) {
             const start = startDate ? new Date(startDate + 'T00:00:00') : null;
             const end = endDate ? new Date(endDate + 'T00:00:00') : null;
@@ -303,7 +303,7 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
             });
         }
 
-        // Фільтр за назвою тесту (нечутливий до регістру)
+        // Filter by test title (case-insensitive)
         const titleFilter = elements.testTitleFilter && elements.testTitleFilter.value ? elements.testTitleFilter.value.trim().toLowerCase() : '';
         if (titleFilter) {
             historyItems = historyItems.filter(item => {
@@ -320,20 +320,20 @@ async function loadUserHistory(startDate, endDate, sortBy = currentSort.field, s
     });
 }
 
-// --- Ініціалізація ---
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Ініціалізація Flatpickr (перевірка наявності для уникнення помилок)
+    // 1. Initialize Flatpickr (check for existence to avoid errors)
     if (typeof flatpickr !== 'undefined') {
         flatpickr('#start-date', { dateFormat: 'Y-m-d', locale: 'de', allowInput: true, placeholder: "Startdatum wählen" });
         flatpickr('#end-date', { dateFormat: 'Y-m-d', locale: 'de', allowInput: true, placeholder: "Enddatum wählen" });
     }
 
-    // 2. Завантаження даних
+    // 2. Load data
     const initialLoad = () => {
         const startDate = elements.startDateInput ? elements.startDateInput.value : '';
         const endDate = elements.endDateInput ? elements.endDateInput.value : '';
         
-        // Встановлюємо дати у Flatpickr при першому завантаженні (якщо вони є)
+        // Set dates in Flatpickr on initial load (if they exist)
         if (elements.startDateInput && elements.startDateInput._flatpickr && startDate) {
             elements.startDateInput._flatpickr.setDate(startDate, true);
         }
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('firestoreReady', initialLoad);
     }
 
-    // 3. Обробники для кнопок фільтрації
+    // 3. Handlers for filter buttons
     if (elements.applyFilterBtn) {
         elements.applyFilterBtn.addEventListener('click', () => {
             loadUserHistory(elements.startDateInput.value, elements.endDateInput.value, currentSort.field, currentSort.direction);
@@ -366,26 +366,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Фільтрація по назві тесту при зміні поля
+    // Filter by test title on field change
     if (elements.testTitleFilter) {
         elements.testTitleFilter.addEventListener('input', () => {
             loadUserHistory(elements.startDateInput.value, elements.endDateInput.value, currentSort.field, currentSort.direction);
         });
     }
 
-    // 4. Обробник для сортування за назвою
+    // 4. Handler for sorting by title
     if (elements.sortByTitleBtn) {
         elements.sortByTitleBtn.addEventListener('click', () => {
             if (currentSort.field === 'testTitle') {
-                // Змінюємо напрямок, якщо вже сортуємо за назвою
+                // Change direction if already sorting by title
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
-                // Переключаємось на сортування за назвою
+                // Switch to sorting by title
                 currentSort.field = 'testTitle';
                 currentSort.direction = 'asc';
             }
 
-            // Оновлюємо іконку
+            // Update the icon
             if (elements.sortTitleIcon) {
                 elements.sortTitleIcon.textContent = currentSort.direction === 'asc' ? '🔼' : '🔽';
             }
@@ -393,17 +393,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 5. Обробник для сортування за датою (повернення до сортування за замовчуванням)
+    // 5. Handler for sorting by date (return to default sorting)
     if (elements.sortByDateBtn) {
         elements.sortByDateBtn.addEventListener('click', () => {
             if (currentSort.field === 'timestamp') {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
                 currentSort.field = 'timestamp';
-                currentSort.direction = 'desc'; // За замовчуванням - новіші зверху
+                currentSort.direction = 'desc'; // Default - newest on top
             }
 
-            // Можна також оновити іконку для дати, якщо вона є
+            // You can also update the icon for the date if it exists
             loadUserHistory(elements.startDateInput.value, elements.endDateInput.value, currentSort.field, currentSort.direction);
         });
     }

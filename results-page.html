@@ -35,10 +35,10 @@
         getDoc,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      // Глобальні змінні, доступні для results.js
+      // Global variables available for results.js
       window.db = null;
       window.userId = null;
-      window.userRole = "user"; // Додано: змінна для зберігання ролі
+      window.userRole = "user"; // Added: variable to store the role
       window.isAuthReady = false;
       window.isTestUser = false;
 
@@ -90,23 +90,23 @@
               window.userId = user.uid;
               window.isTestUser = user.email === "TestUser@test.com";
 
-              // --- ЛОГІКА ПЕРЕВІРКИ РОЛІ АДМІНА ---
+              // --- ADMIN ROLE CHECK LOGIC ---
               const userDocRef = doc(window.db, "users", user.uid);
               const userDoc = await getDoc(userDocRef);
 
               if (userDoc.exists() && userDoc.data().role === "admin") {
                 window.userRole = "admin";
-                // Показуємо посилання для адміна
+                // Show links for admin
                 if (adminLink) adminLink.classList.remove("hidden");
                 if (aiExampleLink) aiExampleLink.classList.remove("hidden");
               }
-              // ------------------------------------
+              // --------------------------------
 
               window.isAuthReady = true;
               console.log("Firebase Auth Ready. User ID:", window.userId);
               window.dispatchEvent(new CustomEvent("firestoreReady"));
             } else {
-              // Користувач не увійшов, перенаправляємо на сторінку входу
+              // User is not logged in, redirect to login page
               window.location.href = "login.html";
             }
           });
@@ -117,10 +117,10 @@
 
       initializeFirebase();
 
-      // Функція виходу
+      // Logout function
       window.logout = async () => {
         await signOut(getAuth());
-        // onAuthStateChanged автоматично перенаправить на login.html
+        // onAuthStateChanged will automatically redirect to login.html
       };
     </script>
   </head>
@@ -173,7 +173,9 @@
       id="test-user-banner"
       class="hidden bg-red-100 border-t-4 border-b-4 border-red-500 text-red-700 px-4 py-3 text-center"
       role="alert"
-    ></div>
+    >
+      This is test mode. Only one test is available. Register!
+    </div>
 
     <main class="flex-grow container mx-auto max-w-4xl p-4 md:p-8">
       <h2
@@ -253,7 +255,7 @@
           id="review-link"
           class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md transition duration-300"
         >
-          🔍 Fehler überprüfen
+          🔍 Review Mistakes
         </a>
       </div>
 

@@ -1,54 +1,57 @@
 # 🇩🇪 German B2 Exam Trainer
 
-## 🌟 Огляд Проекту
+## 🌟 Project Overview
 
-Цей проект є інтерактивним інструментом для підготовки до іспиту з німецької мови рівня **B2 (Goethe / Telc)**. Додаток використовує передові технології **Google Vertex AI (Gemini API)** для:
-* Обробки та аналізу контенту.
-* Генерації відповідей та детальних пояснень до тестових завдань.
+This project is an interactive tool for preparing for the **B2 level German language exam (Goethe / Telc)**. The application uses advanced **Google Vertex AI (Gemini API)** technologies for:
 
-### ⚙️ Ключові Технології
+- Content processing and analysis.
+- Generating answers and detailed explanations for test tasks.
 
-| Категорія | Технології |
-| :--- | :--- |
-| **Фронтенд** | HTML, CSS, **JavaScript** (Vite-based setup) |
-| **Бекенд/Інтеграція** | **Firebase** Authentication, Cloud Firestore (для зберігання даних), Google **Vertex AI (Gemini API)** |
+### ⚙️ Key Technologies
+
+| Category                | Technologies                                                                                       |
+| :---------------------- | :------------------------------------------------------------------------------------------------- |
+| **Frontend**            | HTML, CSS, **JavaScript** (Vite-based setup)                                                       |
+| **Backend/Integration** | **Firebase** Authentication, Cloud Firestore (for data storage), Google **Vertex AI (Gemini API)** |
 
 ---
 
-## 🚀 Локальне Встановлення та Запуск
+## 🚀 Local Installation and Startup
 
-Для запуску проекту локально переконайтеся, що у вас встановлені **Node.js** та **npm**.
+To run the project locally, make sure you have **Node.js** and **npm** installed.
 
-### 1. Клонування Репозиторію
+### 1. Clone the Repository
 
-Відкрийте термінал і виконайте клонування публічного репозиторію:
+Open a terminal and clone the public repository:
 
 ```bash
-git clone [https://github.com/Gefolgwar/German-DE-B2-Exam-trainer.git](https://github.com/Gefolgwar/German-DE-B2-Exam-trainer.git)
+git clone https://github.com/Gefolgwar/German-DE-B2-Exam-trainer.git
 cd German-DE-B2-Exam-trainer
 ```
-### 2. Встановлення Залежностей
+
+### 2. Install Dependencies
 
 Встановіть усі необхідні пакети, перелічені у `package.json`:
 
 ```bash
 npm install
 ```
-### 3. Налаштування Змінних Середовища (API Ключів) 🔑
 
-Для коректної роботи додатка потрібні ключі Firebase API. Вони не включені до репозиторію з міркувань безпеки.
+### 3. Environment Variables Setup (API Keys) 🔑
 
-#### А. Створення Файлу Конфігурації
+For the application to function correctly, Firebase API keys are required. They are not included in the repository for security reasons.
 
-Створіть файл `.env` із шаблону `env.example`:
+#### A. Create Configuration File
+
+Create a .env file from the env.example template:
 
 ```bash
 cp env.example .env
 ```
 
-*Файл `.env` ігнорується Git'ом і залишається локально.*
+_The .env file is ignored by Git and remains local._
 
-Відкрийте файл `.env` та вставте ваші реальні облікові дані Firebase:
+Open the .env file and insert your actual Firebase credentials:
 
 ```ini
 # .env
@@ -56,10 +59,11 @@ VITE_FIREBASE_API_KEY="ВАШ_КЛЮЧ_З_FIREBASE_SETTINGS"
 VITE_FIREBASE_AUTH_DOMAIN="..."
 # ... та інші ключі
 ```
-### 4. Запуск Проекту
 
-Після налаштування запустіть локальний сервер розробки за допомогою Vite:
+### 4. Run the Project
+
+After setup, start the local development server using Vite:
 
 ```bash
 npm run dev
-
+```

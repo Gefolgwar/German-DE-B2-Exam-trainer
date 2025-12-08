@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title id="test-title">B2 Test: Завантаження...</title>
+    <title id="test-title">B2 Test: Loading...</title>
     <meta
       http-equiv="Cache-Control"
       content="no-store, no-cache, must-revalidate, max-age=0"
@@ -16,7 +16,7 @@
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       }
-      /* Стиль для відключення вибору тексту для кращої симуляції тесту */
+      /* Style to disable text selection for better test simulation */
       .noselect {
         user-select: none;
         -webkit-user-select: none;
@@ -44,10 +44,10 @@
         persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      // Глобальні змінні, доступні для main.js
+      // Global variables available for main.js
       window.db = null;
       window.userId = null;
-      window.userRole = "user"; // За замовчуванням
+      window.userRole = "user"; // Default
       window.isAuthReady = false;
 
       const appId =
@@ -71,18 +71,18 @@
           ? __initial_auth_token
           : null;
 
-      // Ініціалізація та Аутентифікація
+      // Initialization and Authentication
       async function initializeFirebase() {
         try {
           if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
             console.error(
               "Firebase config is missing. Using local storage fallback."
             );
-            return; // Вихід, якщо конфігурації немає
+            return; // Exit if config is missing
           }
 
           const app = initializeApp(firebaseConfig);
-          // Ініціалізація Firestore з кешуванням
+          // Initialize Firestore with caching
           window.db = initializeFirestore(app, {
             localCache: persistentLocalCache(/*{size: CACHE_SIZE_UNLIMITED}*/),
           });
@@ -90,7 +90,7 @@
           window.auth = getAuth(app);
           setLogLevel("Debug");
 
-          // Слухач зміни стану аутентифікації
+          // Authentication state change listener
           onAuthStateChanged(window.auth, async (user) => {
             if (user) {
               window.userId = user.uid;
@@ -109,7 +109,7 @@
                 "Role:",
                 window.userRole
               );
-              // Створення глобальної події готовності, яку можуть слухати інші скрипти
+              // Create a global readiness event that other scripts can listen to
               window.dispatchEvent(new CustomEvent("firestoreReady"));
             } else {
               window.location.href = "login.html";
@@ -180,7 +180,7 @@
         id="current-test-title"
         class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2"
       >
-        Тест
+        Test
       </h2>
 
       <div
@@ -201,7 +201,7 @@
       </section>
 
       <section id="questions-container" class="space-y-8">
-        <div class="text-center text-gray-500 p-10">Завантаження тесту...</div>
+        <div class="text-center text-gray-500 p-10">Loading test...</div>
       </section>
     </main>
 

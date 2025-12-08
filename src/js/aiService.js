@@ -9,8 +9,8 @@ import { geminiModel } from "../firebase/config";
  * @returns {Promise<string>} - A promise that resolves with the AI's explanation.
  */
 export async function getAIExplanation(taskText, userAnswer, expectedAnswerText, aiInstructions = '') {
-    // Цей промпт скопійовано та адаптовано з логіки indexAI.html
-    // Він більш деталізований і дає ШІ чіткіші інструкції.
+    // This prompt is copied and adapted from the logic in indexAI.html
+    // It is more detailed and gives the AI clearer instructions.
     const prompt = `
         Du bist ein hilfreicher KI-Assistent zur Überprüfung von B2-Deutschprüfungsantworten.
         Dein Ziel ist es, eine klare, konstruktive und ermutigende Bewertung auf Deutsch zu geben.

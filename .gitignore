@@ -1,5 +1,5 @@
 .env
-# Якщо ви використовуєте JSON-ключ для адмін. доступу, додайте його сюди:
+# If you use a JSON key for admin access, add it here:
 # serviceAccountKey.json
 # google-credentials.json
 /node_modules

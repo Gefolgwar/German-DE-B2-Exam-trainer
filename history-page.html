@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -37,10 +37,10 @@
         persistentLocalCache,
       } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      // Глобальні змінні, доступні для history.js
+      // Global variables available for history.js
       window.db = null;
       window.userId = null;
-      window.userRole = "user"; // За замовчуванням
+      window.userRole = "user"; // Default
       window.isAuthReady = false;
 
       const appId =
@@ -91,7 +91,7 @@
 
       initializeFirebase();
 
-      // Функція виходу, як на сторінці-прикладі
+      // Logout function, like on the example page
       window.logout = async () => {
         await signOut(getAuth());
       };
@@ -134,7 +134,7 @@
             >KI-Beispiel</a
           >
           <script>
-            // Показати "Приклад ШІ" лише для адміна
+            // Show "AI Example" only for admin
             document.addEventListener("DOMContentLoaded", function () {
               function showAIExampleLink() {
                 if (window.userRole === "admin") {
@@ -349,12 +349,12 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          Завантаження історії проходжень...
+          Loading test history...
         </div>
       </div>
     </main>
     <script>
-      // Показати кнопку 'Адмін-панель' якщо userRole === 'admin'
+      // Show 'Admin Panel' button if userRole === 'admin'
       document.addEventListener("DOMContentLoaded", function () {
         function showAdminLink() {
           if (window.userRole === "admin") {
