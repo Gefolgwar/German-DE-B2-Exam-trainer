@@ -8,6 +8,7 @@ const elements = {
     resultPercent: document.getElementById('result-percent'),
     resultTime: document.getElementById('result-time'),
     resultIncorrect: document.getElementById('result-incorrect'),
+    resultPointsShort: document.getElementById('result-points-short'),
     detailedReportContainer: document.getElementById('detailed-report-container'),
     reviewLink: document.getElementById('review-link'),
     resultIdDisplay: document.getElementById('result-id-display'), 
@@ -173,14 +174,46 @@ async function loadResultData(resultId) {
 function renderSummary() {
     if (!currentResultData || !currentTestSnapshot) return;
 
-    const { correctPoints, totalExercises, timeSpentSeconds, passingScore, detailedResults, testTitle, timestamp, blockTimes, teilTimes, exerciseTimes } = currentResultData;
-    const percent = totalExercises > 0 ? ((correctPoints / totalExercises) * 100).toFixed(1) : 0;
-    const incorrectCount = totalExercises - correctPoints;
-    const overallStatus = correctPoints >= passingScore ? 'BESTANDEN' : 'NICHT BESTANDEN';
+    const { totalExercises, timeSpentSeconds, detailedResults, testTitle, timestamp, blockTimes, teilTimes, exerciseTimes } = currentResultData;
+    const passingScore = currentTestSnapshot.passing_score_points || 0;
+
+    // --- Створюємо "плаский" список вправ для легкого доступу ---
+    const flatExercises = [];
+    let totalTestPoints = 0;
+    currentTestSnapshot.blocks.forEach(block => {
+        block.teils.forEach((teil, teilIndex) => {
+            teil.exercises.forEach((ex, exIndex) => {
+                const uniqueId = `${ex.id}-${teilIndex}-${exIndex}`;
+                flatExercises.push({ 
+                    ...ex, 
+                    id: uniqueId, 
+                    originalIndex: flatExercises.length,
+                    block_id: block.block_id, // <-- ВАЖЛИВЕ ВИПРАВЛЕННЯ
+                    teil_id: teil.teil_id
+                });
+                totalTestPoints += ex.points || 0;
+            });
+        });
+    });
+
+    // --- Розрахунок результатів на основі балів ---
+    let userScore = 0;
+    let correctAnswersCount = 0;
+    detailedResults.forEach((result, index) => {
+        if (result.isCorrect) {
+            correctAnswersCount++;
+            userScore += flatExercises[index]?.points || 0;
+        }
+    });
+
+    const percent = totalExercises > 0 ? ((correctAnswersCount / totalExercises) * 100).toFixed(1) : 0;
+    const incorrectCount = totalExercises - correctAnswersCount;
+    const overallStatus = userScore >= passingScore ? 'BESTANDEN' : 'NICHT BESTANDEN';
     const formattedDate = new Date(timestamp).toLocaleString('uk-UA');
     
     elements.testSummaryTitle.innerHTML = `${testTitle} <span class="block text-lg font-normal text-gray-500 mt-1">${formattedDate}</span>`;
-    elements.resultPoints.innerHTML = `${correctPoints}/${totalExercises} <span class="text-xl text-gray-500">(Bestehensgrenze: ${passingScore})</span> <span class="block text-2xl mt-2 ${overallStatus === 'BESTANDEN' ? 'text-green-600' : 'text-red-600'}">${overallStatus}</span>`;
+    elements.resultPoints.innerHTML = `${correctAnswersCount}/${totalExercises} richtig <span class="block text-2xl mt-2 ${overallStatus === 'BESTANDEN' ? 'text-green-600' : 'text-red-600'}">${overallStatus}</span>`;
+    elements.resultPointsShort.textContent = userScore.toFixed(1);
     elements.resultPercent.textContent = `${percent}%`;
     elements.resultTime.textContent = formatTime(timeSpentSeconds);
     elements.resultIncorrect.textContent = incorrectCount;
@@ -188,17 +221,6 @@ function renderSummary() {
 
     // --- Статистика за рівнями ---
     // Створюємо "плаский" список вправ, як і в main.js, щоб мати доступ до індексів
-    const flatExercises = [];
-    currentTestSnapshot.blocks.forEach(block => {
-        block.teils.forEach((teil, teilIndex) => {
-            teil.exercises.forEach((ex, exIndex) => {
-                const uniqueId = `${ex.id}-${teilIndex}-${exIndex}`;
-                // Зберігаємо оригінальний індекс для легкого доступу до результату
-                flatExercises.push({ ...ex, id: uniqueId, originalIndex: flatExercises.length });
-            });
-        });
-    });
-
     let statsHtml = `
         <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">Statistik nach Niveaus</h3>
         <div class="bg-white p-4 rounded-xl shadow-md">
@@ -211,33 +233,11 @@ function renderSummary() {
 
     currentTestSnapshot.blocks.forEach(block => {
         const blockTime = blockTimes[block.block_id] ? blockTimes[block.block_id].timeSpent / 1000 : 0;
-        let blockPoints = 0;
-        let blockMaxPoints = 0;
-
-        block.teils.forEach(teil => {
-            // Знаходимо всі вправи, що належать до цього "Teil"
-            const exercisesInTeil = flatExercises.filter(ex => ex.teil_id === teil.teil_id);
-            
-            const teilStats = exercisesInTeil.reduce((acc, ex) => {
-                // Знаходимо результат за індексом
-                const exResult = detailedResults[ex.originalIndex];
-                const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
-                acc.points += exPoints;
-                acc.maxPoints += ex.points;
-                return acc;
-            }, { points: 0, maxPoints: 0 });
-
-            blockPoints += teilStats.points;
-            blockMaxPoints += teilStats.maxPoints;
-        });
-
-        statsHtml += `
-            <div class="grid grid-cols-3 gap-4 items-center py-2 border-b border-gray-200">
-                <div class="font-bold text-blue-700">Block: ${block.title}</div>
-                <div class="text-center font-mono">${formatTime(blockTime)} / ${formatTime(block.time * 60)}</div>
-                <div class="text-right font-bold">${blockPoints}/${blockMaxPoints}</div>
-            </div>
-        `;
+        
+        // Розраховуємо загальні бали для блоку перед його відображенням
+        const blockExercises = flatExercises.filter(ex => ex.block_id === block.block_id);
+        const blockTotalPoints = blockExercises.reduce((sum, ex) => sum + parseFloat(ex.points || 0), 0);
+        const blockUserPoints = blockExercises.reduce((sum, ex) => sum + (detailedResults[ex.originalIndex]?.isCorrect ? parseFloat(ex.points || 0) : 0), 0);
 
         block.teils.forEach(teil => {
             const teilTime = teilTimes[teil.teil_id] ? teilTimes[teil.teil_id].timeSpent / 1000 : 0;
@@ -245,33 +245,29 @@ function renderSummary() {
             
             const teilStats = exercisesInTeil.reduce((acc, ex) => {
                 const exResult = detailedResults[ex.originalIndex];
-                const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
+                const exPoints = exResult && exResult.isCorrect ? parseFloat(ex.points || 0) : 0;
                 acc.points += exPoints;
-                acc.maxPoints += ex.points;
+                acc.maxPoints += parseFloat(ex.points || 0);
                 return acc;
             }, { points: 0, maxPoints: 0 });
             
+            // Відображаємо блок тільки один раз, перед першим "Teil"
+            if (block.teils.indexOf(teil) === 0) {
+                 statsHtml += `
+                    <div class="grid grid-cols-3 gap-4 items-center py-2 border-b border-gray-200">
+                        <div class="font-bold text-blue-700">Block: ${block.title}</div>
+                        <div class="text-center font-mono">${formatTime(blockTime)} / ${formatTime(block.time * 60)}</div>
+                        <div class="text-right font-bold">${blockUserPoints.toFixed(1)}/${blockTotalPoints.toFixed(1)}</div>
+                    </div>`;
+            }
             statsHtml += `
                 <div class="grid grid-cols-3 gap-4 items-center py-1 pl-4 border-l-2 border-blue-100">
                     <div class="text-blue-600">Teil: ${teil.name}</div>
                     <div class="text-center font-mono">${formatTime(teilTime)}</div>
-                    <div class="text-right font-semibold">${teilStats.points}/${teilStats.maxPoints}</div>
+                    <div class="text-right font-semibold">${teilStats.points.toFixed(1)}/${teilStats.maxPoints.toFixed(1)}</div>
                 </div>
             `;
 
-            exercisesInTeil.forEach(ex => {
-                const exResult = detailedResults[ex.originalIndex];
-                const exTime = exerciseTimes[ex.id] ? exerciseTimes[ex.id].timeSpent / 1000 : 0;
-                const exPoints = exResult && exResult.isCorrect ? ex.points : 0;
-                
-                statsHtml += `
-                    <div class="grid grid-cols-3 gap-4 items-center py-1 pl-8 text-sm text-gray-700">
-                        <div>Übung Nr.${ex.originalIndex + 1}</div>
-                        <div class="text-center font-mono">${formatTime(exTime)}</div>
-                        <div class="text-right">${exPoints}/${ex.points}</div>
-                    </div>
-                `;
-            });
         });
     });
 

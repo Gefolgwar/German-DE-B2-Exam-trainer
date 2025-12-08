@@ -86,7 +86,7 @@ function createExerciseHtml(teilId, exerciseIndex, exerciseData = {}) {
 
             <div class="space-y-2 mb-4">
                 <label class="block text-gray-700 font-medium">Punkte für die Übung:</label>
-                <input type="number" name="exercise_points" class="w-full p-2 border rounded-lg" value="${points}" min="0" required>
+                <input type="number" name="exercise_points" class="w-full p-2 border rounded-lg" value="${points}" min="0" step="0.1" required>
             </div>
 
             <fieldset class="border p-4 rounded-lg space-y-4">
@@ -265,7 +265,7 @@ function createBlockCard(blockIndex, blockData = {}) {
             </div>
             <div class="space-y-2">
                 <label class="block text-gray-700 font-semibold">Punkte zum Bestehen:</label>
-                <input type="number" name="block_points_to_pass" class="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.points_to_pass || '1'}" min="0" required>
+                <input type="number" name="block_points_to_pass" class="block-passing-score-input w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500" value="${blockData.points_to_pass ?? '1'}" min="0" step="0.1" required>
             </div>
             <div class="space-y-2 bg-blue-50 p-3 rounded-lg">
                 <label class="block text-gray-700 font-semibold">Gesamtpunkte im Block:</label>
@@ -363,6 +363,7 @@ function addBlock(blockData = {}) {
     }
 
     updateTotalDuration();
+    updateTotalPassingScore();
     updateAllPoints();
 }
 
@@ -453,6 +454,20 @@ function updateTotalDuration() {
 }
 
 /**
+ * Оновлює загальний прохідний бал тесту на основі балів для проходження блоків.
+ */
+function updateTotalPassingScore() {
+    let totalScore = 0;
+    document.querySelectorAll('.block-passing-score-input').forEach(input => {
+        totalScore += parseFloat(input.value) || 0;
+    });
+    const totalPassingScoreInput = document.getElementById('passing-score');
+    if (totalPassingScoreInput) {
+        totalPassingScoreInput.value = totalScore;
+    }
+}
+
+/**
  * Оновлює всі бали в формі.
  */
 function updateAllPoints() {
@@ -473,7 +488,7 @@ function updateAllPoints() {
                 }
 
                 const pointsInput = exerciseItem.querySelector('input[name="exercise_points"]');
-                totalTeilPoints += parseInt(pointsInput.value, 10) || 0;
+                totalTeilPoints += parseFloat(pointsInput.value) || 0;
             });
 
             // Оновлюємо бали для Teil
@@ -513,8 +528,8 @@ function serializeFormToTestObject(form) {
     const test = {
         test_id: form.dataset.testId || generateUniqueId(),
         title: form.querySelector('#test-title').value.trim() || "Unbenannter Test",
-        duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10),
-        passing_score_points: parseInt(form.querySelector('#passing-score').value, 10),
+        duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10) || 0,
+        passing_score_points: parseFloat(form.querySelector('#passing-score').value) || 0,
         questions_total: 0, // Виправлено з exercises_total на questions_total
         blocks: [],
         userId: window.userId // Зберігаємо ID користувача, який створив тест
@@ -529,7 +544,7 @@ function serializeFormToTestObject(form) {
             title: blockCard.querySelector('input[name="block_title"]').value.trim(),
             text: blockCard.querySelector('textarea[name="block_text"]').value.trim(),
             time: parseInt(blockCard.querySelector('input[name="block_time"]').value, 10) || 0,
-            points_to_pass: parseInt(blockCard.querySelector('input[name="block_points_to_pass"]').value, 10) || 0,
+            points_to_pass: parseFloat(blockCard.querySelector('input[name="block_points_to_pass"]').value) || 0,
             teils: []
         };
 
@@ -540,7 +555,7 @@ function serializeFormToTestObject(form) {
                 teil_id: teilId,
                 name: teilCard.querySelector('input[name="teil_name"]').value.trim(),
                 text: teilCard.querySelector('textarea[name="teil_text"]').value.trim(),
-                points: parseInt(teilCard.querySelector('input[name="teil_points"]').value, 10) || 0,
+                points: parseFloat(teilCard.querySelector('input[name="teil_points"]').value) || 0,
                 exercises: []
             };
 
@@ -551,7 +566,7 @@ function serializeFormToTestObject(form) {
                 const exerciseText = exItem.querySelector('textarea[name="exercise_text"]').value.trim();
                 const explanation = exItem.querySelector('textarea[name="explanation"]').value.trim();
                 const taskText = exItem.querySelector('textarea[name="task_text"]').value.trim(); // Отримуємо текст завдання
-                const points = parseInt(exItem.querySelector('input[name="exercise_points"]').value, 10) || 0;
+                const points = parseFloat(exItem.querySelector('input[name="exercise_points"]').value) || 0;
 
                 let exercise = {
                     id: exId,
@@ -754,8 +769,8 @@ async function loadTestForEditing(testId, retries = 3) {
                 elements.pageTitle.textContent = `Test bearbeiten: ${testToEdit.title || ''}`;
             }
             document.getElementById('test-title').value = testToEdit.title || '';
-            document.getElementById('duration-minutes').value = testToEdit.duration_minutes || 0;
-            document.getElementById('passing-score').value = testToEdit.passing_score_points || 0;
+            document.getElementById('duration-minutes').value = testToEdit.duration_minutes || '25';
+            document.getElementById('passing-score').value = testToEdit.passing_score_points || '15';
 
             elements.blocksContainer.innerHTML = '';
             window.currentBlockIndex = 0; // Скидаємо лічильник
@@ -777,6 +792,7 @@ async function loadTestForEditing(testId, retries = 3) {
             });
             
             updateTotalDuration();
+            updateTotalPassingScore();
             updateAllPoints(); // Рахуємо бали після завантаження
             showMessage(`Test "${testToEdit.title}" zum Bearbeiten geladen.`, 'success');
 
@@ -813,6 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             element.remove();
             updateAllPoints();
+            updateTotalPassingScore();
         }
     };
 
@@ -832,6 +849,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Оновлення балів
                 if (e.target.name === 'exercise_points') {
                     updateAllPoints();
+                }
+                // Оновлення прохідного балу
+                if (e.target.classList.contains('block-passing-score-input')) {
+                    updateTotalPassingScore();
                 }
                 // Оновлення вигляду вправи при зміні типу
                 if (e.target.name === 'exercise_type') {

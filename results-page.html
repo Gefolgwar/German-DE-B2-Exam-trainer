@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>B2 Test: Ваші Результати</title>
+    <title>B2 Test: Ihre Ergebnisse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -179,7 +179,7 @@
       <h2
         class="text-3xl font-extrabold text-gray-800 mb-6 border-b pb-2 text-center"
       >
-        Результати Тесту:
+        Testergebnisse:
         <span id="test-summary-title" class="text-blue-600">...</span>
       </h2>
 
@@ -187,22 +187,41 @@
         class="bg-white p-6 rounded-xl shadow-2xl mb-10 text-center border-t-4 border-blue-500"
       >
         <p class="text-sm text-gray-500 mb-1" id="result-id-display">
-          ID Користувача: (Завантаження...)
+          Benutzer-ID: (Wird geladen...)
         </p>
         <p class="text-6xl font-extrabold text-red-600" id="result-points">
           0/0
         </p>
-        <p class="text-xl text-gray-600 mt-2">Балів набрано (Прохідний: 0)</p>
+        <p
+          class="text-xl text-gray-600 mt-2"
+          id="passing-score-text"
+          style="display: none"
+        >
+          Erreichte Punkte (Zum Bestehen: 0)
+        </p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 text-center">
+      <div
+        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-center"
+      >
+        <div
+          class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
+        >
+          <p
+            class="text-5xl font-extrabold text-blue-600"
+            id="result-points-short"
+          >
+            0
+          </p>
+          <p class="text-gray-500 mt-1">Erreichte Punkte</p>
+        </div>
         <div
           class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
         >
           <p class="text-5xl font-extrabold text-green-600" id="result-percent">
             0%
           </p>
-          <p class="text-gray-500 mt-1">Правильних відповідей</p>
+          <p class="text-gray-500 mt-1">Richtige Antworten</p>
         </div>
         <div
           class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
@@ -210,7 +229,7 @@
           <p class="text-5xl font-extrabold text-red-600" id="result-incorrect">
             0
           </p>
-          <p class="text-gray-500 mt-1">Помилок</p>
+          <p class="text-gray-500 mt-1">Fehler</p>
         </div>
         <div
           class="p-6 bg-white rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl"
@@ -218,13 +237,13 @@
           <p class="text-5xl font-extrabold text-purple-600" id="result-time">
             00:00
           </p>
-          <p class="text-gray-500 mt-1">Витрачено часу</p>
+          <p class="text-gray-500 mt-1">Verbrauchte Zeit</p>
         </div>
       </div>
 
       <section id="stats-by-level-container" class="space-y-6 mb-10">
         <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">
-          Статистика за рівнями
+          Statistik nach Niveaus
         </h3>
       </section>
 
@@ -240,7 +259,7 @@
 
       <section id="detailed-report-container" class="space-y-6">
         <h3 class="text-2xl font-bold text-gray-700 pt-4 border-t mb-6">
-          Детальний звіт
+          Detaillierter Bericht
         </h3>
       </section>
 
