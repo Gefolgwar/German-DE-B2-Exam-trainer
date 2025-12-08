@@ -531,7 +531,8 @@ function serializeFormToTestObject(form) {
         duration_minutes: parseInt(form.querySelector('#duration-minutes').value, 10) || 0,
         passing_score_points: parseFloat(form.querySelector('#passing-score').value) || 0,
         questions_total: 0, // Виправлено з exercises_total на questions_total
-        blocks: [],
+        updatedAt: new Date().toISOString(), // Додаємо дату оновлення
+        blocks: [], 
         userId: window.userId // Зберігаємо ID користувача, який створив тест
     };
 

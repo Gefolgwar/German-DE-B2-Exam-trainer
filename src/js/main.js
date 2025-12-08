@@ -61,55 +61,55 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 function generateTestItemHtml(test, stats = { completions: 0, avgScore: 0 }) {
     // Адмін може редагувати все, користувач - тільки своє
     const canEdit = window.userRole === 'admin' || test.userId === window.userId;
-
-    const actionButtons = `
-        <button 
-            class="btn-run bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-            data-test-id="${test.test_id}"
-        >
-            ▶️ Starten
-        </button>
-        <button 
-            class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
-            data-test-id="${test.test_id}"
-        >
-            ✏️ Bearbeiten
-        </button>
-        <button 
-            class="btn-download bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition"
-            data-test-id="${test.test_id}" ${window.userRole !== 'admin' ? 'hidden' : ''}
-        >
-            ⬇️ Herunterladen
-        </button>
-        <button 
-            class="btn-delete bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}"
-            data-test-id="${test.test_id}"
-            data-test-title="${test.title}"
-        >
-            🗑️ Löschen
-        </button>
-    `;
     
+    // Форматуємо дату оновлення
+    let updatedAtString = '';
+    if (test.updatedAt) {
+        const date = new Date(test.updatedAt);
+        updatedAtString = `Bearbeitet am: ${date.toLocaleDateString('de-DE')} um ${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
     return `
-        <div class="test-card bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500 flex justify-between items-center flex-wrap gap-4">
-            <div>
-                <h4 class="text-xl font-semibold text-gray-800">${test.title}</h4>
-                <p class="text-sm text-gray-500 mt-1">
-                    Fragen: ${test.questions_total} | Min: ${test.duration_minutes} | Bestehensgrenze: ${test.passing_score_points}
-                </p>
-                <p class="text-xs text-gray-400 mt-1">ID: ${test.test_id}</p>
-                <div class="mt-2 text-xs text-gray-500">
-                    <span class="inline-block bg-gray-200 rounded-full px-2 py-1">
-                        Absolviert: <strong>${stats.completions}</strong>
+        <div class="test-card bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500 flex justify-between items-center gap-4">
+            <!-- Ліва частина: Інформація -->
+            <div class="flex-grow">
+                <h4 class="text-xl font-bold text-gray-800">${test.title}</h4>
+                <div class="text-sm text-gray-500 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>
+                        <strong>${test.questions_total || 0}</strong> Fragen
                     </span>
-                    <span class="inline-block bg-gray-200 rounded-full px-2 py-1 ml-2">
-                        Durchschnittsnote: <strong>${stats.avgScore.toFixed(1)}%</strong>
+                    <span>
+                        <strong>${test.duration_minutes || 0}</strong> Min.
+                    </span>
+                    <span>
+                        Absolviert: <strong>${stats.completions || 0}</strong> Mal
+                    </span>
+                    <span>
+                        Durchschnitt: <strong>${stats.avgScore.toFixed(1)}%</strong>
                     </span>
                 </div>
+                <div class="text-xs text-gray-400 mt-2">
+                    ${updatedAtString}
+                </div>
             </div>
-            
-            <div class="flex flex-wrap gap-2">
-                ${actionButtons}
+
+            <!-- Права частина: Кнопки -->
+            <div class="flex-shrink-0 flex flex-col sm:flex-row gap-2 items-center">
+                <button 
+                    class="btn-run w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transition"
+                    data-test-id="${test.test_id}"
+                >
+                    Start
+                </button>
+                <a href="upload-test.html?edit=${test.test_id}" class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}">
+                    Bearbeiten
+                </a>
+                <button class="btn-download bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition ${window.userRole !== 'admin' ? 'hidden' : ''}" data-test-id="${test.test_id}">
+                    JSON
+                </button>
+                <button class="btn-delete bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition ${!canEdit ? 'hidden' : ''}" data-test-id="${test.test_id}" data-test-title="${test.title}">
+                    Löschen
+                </button>
             </div>
         </div>
     `;
